@@ -1,0 +1,27 @@
+server:
+  port: 8084
+spring:
+  redis:
+    password: 737713
+    host: 47.98.206.89
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 1
+        time-between-eviction-runs: 10s
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  datasource:
+    username: pan_back
+    password: F6my6acdmNxJKknG
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://47.98.206.89:3306/pan_back
+  jackson:
+    default-property-inclusion: non_null
+mybatis:
+  type-aliases-package: com.example.panbackend.entity.po
+logging:
+  level:
+    com.example.pan_back_end: debug
