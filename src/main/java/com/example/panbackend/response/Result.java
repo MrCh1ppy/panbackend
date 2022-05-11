@@ -44,15 +44,14 @@ public final class Result<T> {
 	 * fail
 	 *
 	 * @param code 返回码
-	 * @param data 数据
+	 * @param position 错误位置
 	 * @param msg 附带消息
 	 * @return {@link Result}
 	 * @see Result
-	 * @see T
 	 * 返回失败的数据
 	 */
-	public static <T>Result<T> fail(ResponseCode code,T data,String msg){
-		return get(code,data,msg);
+	public static Result<String> fail(ResponseCode code,String position,String msg){
+		return get(code,position,msg);
 	}
 }
 
