@@ -7,5 +7,4 @@ import javax.persistence.Id;
 public class File {
 	@Id
 	int id;
-
 }
