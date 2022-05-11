@@ -1,5 +1,6 @@
 package com.example.panbackend.service.impl;
 
+import cn.hutool.core.io.FileUtil;
 import cn.hutool.http.HttpResponse;
 import com.example.panbackend.dao.UserDao;
 import com.example.panbackend.entity.param.FileUploadParam;
@@ -9,13 +10,19 @@ import com.example.panbackend.response.ResponseCode;
 import com.example.panbackend.response.Result;
 import com.example.panbackend.service.FileService;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.tomcat.util.http.fileupload.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.servlet.ServletOutputStream;
+import javax.servlet.http.HttpServletResponse;
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Optional;
 
 @Service
@@ -85,7 +92,31 @@ public class FileServiceImpl implements FileService {
 		return fileSize<size;
 	}
 
-	public String fileDownLoad(HttpResponse response, @RequestParam("fileName")String fileName){
-		return null;
+	private Result<String> fileDownLoad(HttpServletResponse response, @RequestParam("fileName")String path){
+		File file = new File(path);
+		if(!file.exists()){
+			throw new ProjectException("文件不存在",ResponseCode.INVALID_PARAMETER);
+		}
+		response.reset();
+		response.setContentType("application/octet-stream");
+		response.setCharacterEncoding("utf-8");
+		response.setContentLength((int) file.length());
+		response.setHeader("Content-Disposition", "attachment;filename=" + file.getName() );
+
+		try(
+				BufferedInputStream stream = new BufferedInputStream(Files.newInputStream(file.toPath()))
+		){
+			byte[] bytes = new byte[1024];
+			ServletOutputStream ops = response.getOutputStream();
+			int i;
+			while ((i=stream.read(bytes))!=-1){
+				ops.write(bytes,0,i);
+				ops.flush();
+			}
+		}catch (IOException e){
+			log.error("{}",e);
+			throw new ProjectException("download error",ResponseCode.DEFAULT_ERROR);
+		}
+		return Result.ok("success");
 	}
 }
