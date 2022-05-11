@@ -114,7 +114,7 @@ public class FileServiceImpl implements FileService {
 				ops.flush();
 			}
 		}catch (IOException e){
-			log.error("{}",e);
+			log.error("{} check",e);
 			throw new ProjectException("download error",ResponseCode.DEFAULT_ERROR);
 		}
 		return Result.ok("success");
