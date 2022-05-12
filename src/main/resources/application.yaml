@@ -12,7 +12,7 @@ spring:
         time-between-eviction-runs: 10s
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
   datasource:
     username: pan_back
     password: F6my6acdmNxJKknG
@@ -25,3 +25,5 @@ mybatis:
 logging:
   level:
     com.example.pan_back_end: debug
+file:
+  store_path: "D:\\project_cache\\"

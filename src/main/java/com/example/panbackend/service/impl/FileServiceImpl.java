@@ -1,8 +1,6 @@
 package com.example.panbackend.service.impl;
 
-import cn.hutool.core.io.FileUtil;
-import cn.hutool.http.HttpResponse;
-import com.example.panbackend.dao.UserDao;
+import com.example.panbackend.dao.jpa.UserDao;
 import com.example.panbackend.entity.param.FileUploadParam;
 import com.example.panbackend.entity.po.User;
 import com.example.panbackend.exception.ProjectException;
@@ -10,7 +8,6 @@ import com.example.panbackend.response.ResponseCode;
 import com.example.panbackend.response.Result;
 import com.example.panbackend.service.FileService;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.tomcat.util.http.fileupload.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -20,7 +17,6 @@ import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Optional;
@@ -43,22 +39,22 @@ public class FileServiceImpl implements FileService {
 		String fileName = file.getOriginalFilename();
 		Optional<User> user = userDao.findById(param.getUserID());
 		if(!user.isPresent()){
-			throw new ProjectException("无对应用户",ResponseCode.INVALID_PARAMETER);
+			return Result.fail(ResponseCode.LOGIC_ERROR,"无对应用户");
 		}
 		if (checkSize(param.getFile(),param.getSizeLimit(),param.getSizeUnit())){
-			throw  new ProjectException("程序超过限制大小",ResponseCode.INVALID_PARAMETER);
+			return Result.fail(ResponseCode.LOGIC_ERROR,"文件超过大小");
 		}
 		File dest = new File(param.getPath() + "// " + fileName);
 		if(!dest.getParentFile().exists()){
 			if (dest.getParentFile().mkdirs()) {
 				log.warn("文件夹未创建");
-				throw new ProjectException("文件夹未创建成功",ResponseCode.DEFAULT_ERROR);
+				return Result.fail(ResponseCode.DEFAULT_ERROR,"文件夹创建失败");
 			}
 			try{
 				file.transferTo(dest);
 			}catch (IOException e){
 				log.warn("文件传输错误");
-				throw new ProjectException("程序错误，请重上传",ResponseCode.DEFAULT_ERROR);
+				Result.fail(ResponseCode.DEFAULT_ERROR,"程序错误，请重上传");
 			}
 		}
 		return Result.ok("成功传输，路径为"+param.getPath()+" "+param.getFile().getOriginalFilename());
@@ -115,7 +111,7 @@ public class FileServiceImpl implements FileService {
 			}
 		}catch (IOException e){
 			log.error("{} check",e);
-			throw new ProjectException("download error",ResponseCode.DEFAULT_ERROR);
+			return Result.fail(ResponseCode.DEFAULT_ERROR,"下载时出现异常");
 		}
 		return Result.ok("success");
 	}

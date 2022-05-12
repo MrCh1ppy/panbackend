@@ -2,7 +2,6 @@ package com.example.panbackend.exception;
 
 import com.example.panbackend.response.ResponseCode;
 import com.example.panbackend.response.Result;
-import com.sun.xml.txw2.output.ResultFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -28,7 +27,7 @@ public class GolobelExceptionHandler {
 	private Result<String>defaultHandler(Exception e, String msg, ResponseCode responseCode){
 		String position = getErrorPosition(e);
 		loggerOutPut(msg,position);
-		return Result.fail(responseCode,msg,position);
+		return Result.error(responseCode,msg,position);
 	}
 
 	@ExceptionHandler(value = Exception.class)
