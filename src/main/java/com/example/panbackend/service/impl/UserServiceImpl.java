@@ -70,7 +70,7 @@ public class UserServiceImpl implements UserService {
 		if(!Objects.equals(dealPassword, temp.getPassword())){
 			return Result.fail(ResponseCode.LOGIC_ERROR,"密码错误");
 		}
-		
-		return ;
+		// TODO: 2022.5.12  
+		return null;
 	}
 }
