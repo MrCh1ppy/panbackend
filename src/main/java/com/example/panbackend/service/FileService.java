@@ -8,5 +8,5 @@ import javax.servlet.http.HttpServletResponse;
 public interface FileService {
 	Result<String> upload(FileUploadParam param);
 
-	Result<String> fileDownLoad(HttpServletResponse response,String path);
+	Result<String> fileDownLoad(HttpServletResponse response,String path,int userID);
 }

@@ -3,6 +3,7 @@ package com.example.panbackend.service.impl;
 import com.example.panbackend.dao.jpa.UserDao;
 import com.example.panbackend.entity.param.FileUploadParam;
 import com.example.panbackend.entity.po.User;
+import com.example.panbackend.exception.ProjectException;
 import com.example.panbackend.response.ResponseCode;
 import com.example.panbackend.response.Result;
 import com.example.panbackend.service.FileService;
@@ -26,7 +27,8 @@ import java.util.Optional;
 public class FileServiceImpl implements FileService {
 
 	UserDao userDao;
-	private static final String STORE_PRE_PATH = "D:\\PAN\\IO";
+	private static final String STORE_PRE_PATH = "D://PAN//IO";
+	private static final String DIVIDE="//";
 
 	@Autowired
 	public FileServiceImpl setUserDao(UserDao userDao) {
@@ -52,16 +54,10 @@ public class FileServiceImpl implements FileService {
 
 	@Override
 	public Result<String> upload(FileUploadParam param) {
-		Optional<User> user = userDao.findById(param.getUserID());
-		if(!user.isPresent()){
-			return Result.fail(ResponseCode.LOGIC_ERROR,"无对应用户");
-		}
 		if (checkSize(param.getFile(),param.getSizeLimit(),param.getSizeUnit())){
 			return Result.fail(ResponseCode.LOGIC_ERROR,"文件超过大小");
 		}
-		String path = STORE_PRE_PATH +
-				"\\" + param.getUserID() +
-				"\\" + param.getPath()+"\\";
+		String path = pathHelper(param.getPath(), param.getUserID());
 		return doUpload(param.getFile(), path);
 	}
 
@@ -93,8 +89,8 @@ public class FileServiceImpl implements FileService {
 		return fileSize<size;
 	}
 
-	public Result<String> fileDownLoad(HttpServletResponse response,String path)  {
-		path = pathHelper(path);
+	private Result<String>doDownLoad(HttpServletResponse response,String path){
+		log.info("download file:{}",path);
 		File file = new File(path);
 		if(!file.exists()){
 			return Result.fail(ResponseCode.NOT_FOUND,"此文件不存在");
@@ -111,7 +107,7 @@ public class FileServiceImpl implements FileService {
 		}
 		ServletOutputStream ops = null;
 		try(
-				BufferedInputStream stream = new BufferedInputStream(Files.newInputStream(file.toPath()));
+				BufferedInputStream stream = new BufferedInputStream(Files.newInputStream(file.toPath()))
 		){
 			byte[] bytes = new byte[10240];
 			ops = response.getOutputStream();
@@ -135,14 +131,24 @@ public class FileServiceImpl implements FileService {
 		return Result.ok("success");
 	}
 
+	@Override
+	public Result<String> fileDownLoad(HttpServletResponse response,String path,int userId)  {
+		String tempPath = pathHelper(path, userId);
+		return doDownLoad(response, tempPath);
+	}
+
 	/**
 	 * 拼接路径地址使用
 	 * @param path 传输过来的路径
 	 * @return 完整路径
 	 */
-	private String pathHelper(String path){
-		StringBuilder sb = new StringBuilder("E:\\Java\\IO\\");
-		sb.append(path);
-		return sb.toString();
+	private String pathHelper(String path,int userID){
+		Optional<User> user = userDao.findById(userID);
+		if(!user.isPresent()){
+			throw new ProjectException("无对应用户",ResponseCode.LOGIC_ERROR);
+		}
+		return STORE_PRE_PATH +
+				DIVIDE + userID +
+				DIVIDE + path;
 	}
 }

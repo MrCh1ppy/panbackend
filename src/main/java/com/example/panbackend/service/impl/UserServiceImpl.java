@@ -6,7 +6,6 @@ import com.example.panbackend.dao.jpa.UserDao;
 import com.example.panbackend.entity.param.UserLoginParam;
 import com.example.panbackend.entity.param.UserRegisterParam;
 import com.example.panbackend.entity.po.User;
-import com.example.panbackend.exception.ProjectException;
 import com.example.panbackend.response.ResponseCode;
 import com.example.panbackend.response.Result;
 import com.example.panbackend.service.UserService;
@@ -31,12 +30,20 @@ public class UserServiceImpl implements UserService {
 		return this;
 	}
 
+	/**
+	 * register
+	 *注册服务
+	 * @param param param
+	 * @return {@link Result}
+	 * @see Result
+	 * @see String
+	 */
 	@Override
 	public Result<String> register(UserRegisterParam param) {
 		String username = param.getUsername();
 		Optional<User> byUsername = userDao.findUserByUsername(username);
 		if(!byUsername.isPresent()){
-			throw new ProjectException("用户名已存在",ResponseCode.DEFAULT_ERROR);
+			return Result.fail(ResponseCode.LOGIC_ERROR,"用户名已存在");
 		}
 		User user = new User(
 				-1,
@@ -47,7 +54,7 @@ public class UserServiceImpl implements UserService {
 		if(temp.getId()!=-1){
 			return Result.ok("ok");
 		}
-		throw new ProjectException("insert fail",ResponseCode.DEFAULT_ERROR);
+		return Result.fail(ResponseCode.LOGIC_ERROR,"创建用户失败");
 	}
 
 	/**
@@ -70,6 +77,7 @@ public class UserServiceImpl implements UserService {
 			return Result.fail(ResponseCode.LOGIC_ERROR,"密码错误");
 		}
 		StpUtil.login(temp.getId());
-		return null;
+		String token = StpUtil.getTokenValue();
+		return Result.ok(token);
 	}
 }

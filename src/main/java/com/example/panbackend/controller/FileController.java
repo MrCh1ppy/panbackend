@@ -43,8 +43,10 @@ public class FileController {
 
 	@PostMapping(value = "/download")
 	@ResponseBody
-	public Result<String> downLoad( HttpServletResponse response,String path){
-		Result<String> result = fileService.fileDownLoad(response,path);
+	public Result<String> downLoad( HttpServletResponse response
+			,@RequestParam("path") String path
+			,@RequestParam("userID") int userID){
+		Result<String> result = fileService.fileDownLoad(response,path,userID);
 		if(result.getCode()==200){
 			return null;
 		}
