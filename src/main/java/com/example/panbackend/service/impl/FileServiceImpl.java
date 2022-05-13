@@ -9,6 +9,7 @@ import com.example.panbackend.response.Result;
 import com.example.panbackend.service.FileService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -27,8 +28,10 @@ import java.util.Optional;
 public class FileServiceImpl implements FileService {
 
 	UserDao userDao;
-	private static final String STORE_PRE_PATH = "D://PAN//IO";
-	private static final String DIVIDE="//";
+	@Value("${const.store.pre_path}")
+	public static String STORE_PRE_PATH;
+	@Value("${const.store.divide}")
+	public static String DIVIDE;
 
 	@Autowired
 	public FileServiceImpl setUserDao(UserDao userDao) {

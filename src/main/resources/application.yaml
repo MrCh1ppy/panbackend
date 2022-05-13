@@ -25,3 +25,7 @@ mybatis:
 logging:
   level:
     com.example.pan_back_end: debug
+const:
+  store:
+    pre_path: "D://PAN//IO"
+    divide: "//"
