@@ -1,7 +1,7 @@
 package com.example.panbackend.service.impl;
 
+import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.crypto.SecureUtil;
-import cn.hutool.crypto.digest.MD5;
 import com.example.panbackend.dao.jpa.UserDao;
 import com.example.panbackend.entity.param.UserLoginParam;
 import com.example.panbackend.entity.param.UserRegisterParam;
@@ -60,7 +60,6 @@ public class UserServiceImpl implements UserService {
 	 */
 	@Override
 	public Result<String> login(UserLoginParam param) {
-		String username = param.getUsername();
 		Optional<User> user = userDao.findUserByUsername(param.getUsername());
 		if(!user.isPresent()){
 			return Result.fail(ResponseCode.LOGIC_ERROR,"无对应用户名");
@@ -70,7 +69,7 @@ public class UserServiceImpl implements UserService {
 		if(!Objects.equals(dealPassword, temp.getPassword())){
 			return Result.fail(ResponseCode.LOGIC_ERROR,"密码错误");
 		}
-		// TODO: 2022.5.12  
+		StpUtil.login(temp.getId());
 		return null;
 	}
 }

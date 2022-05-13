@@ -5,13 +5,12 @@ import com.example.panbackend.response.Result;
 import com.example.panbackend.service.FileService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
-import com.alibaba.fastjson.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletResponse;
 
-@Controller
+@RestController
 @RequestMapping("/file")
 @Slf4j
 public class FileController {
@@ -23,19 +22,32 @@ public class FileController {
 		this.fileService = fileService;
 		return this;
 	}
-	@PostMapping("upload")
-	public Result<String> upload(@RequestBody FileUploadParam param){
+	@PostMapping("/upload")
+	public Result<String> upload(@RequestParam("userID")int userID,
+	                             @RequestParam("file") MultipartFile file,
+	                             @RequestParam("path") String path,
+                                 @RequestParam("sizeLimit")int sizeLimit,
+                                 @RequestParam("sizeUnit")String sizeUnit
+
+	){
+		FileUploadParam param = new FileUploadParam(
+				file,
+				path,
+				userID,
+				sizeLimit,
+				sizeUnit
+				);
 		return fileService.upload(param);
 	}
 
 
-	@PostMapping(value = "download")
+	@PostMapping(value = "/download")
 	@ResponseBody
-	public Object downLoad( HttpServletResponse response,String path){
+	public Result<String> downLoad( HttpServletResponse response,String path){
 		Result<String> result = fileService.fileDownLoad(response,path);
-		if (result.getCode()!=200){
-			return JSON.toJSON(result);
+		if(result.getCode()==200){
+			return null;
 		}
-		return null;
+		return result;
 	}
 }

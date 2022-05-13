@@ -26,6 +26,7 @@ public class GolobelExceptionHandler {
 
 	private Result<String>defaultHandler(Exception e, String msg, ResponseCode responseCode){
 		String position = getErrorPosition(e);
+		e.printStackTrace();
 		loggerOutPut(msg,position);
 		return Result.error(responseCode,msg,position);
 	}

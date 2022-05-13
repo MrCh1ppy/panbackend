@@ -25,5 +25,3 @@ mybatis:
 logging:
   level:
     com.example.pan_back_end: debug
-file:
-  store_path: "D:\\project_cache\\"
