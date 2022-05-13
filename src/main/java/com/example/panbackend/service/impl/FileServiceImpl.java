@@ -18,6 +18,8 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.nio.file.Files;
 import java.util.Optional;
 
@@ -88,31 +90,57 @@ public class FileServiceImpl implements FileService {
 		return fileSize<size;
 	}
 
-	private Result<String> fileDownLoad(HttpServletResponse response, @RequestParam("fileName")String path){
+
+
+	public Result<String> fileDownLoad(HttpServletResponse response,String path)  {
+		path = PathHelper(path);
 		File file = new File(path);
 		if(!file.exists()){
-			throw new ProjectException("文件不存在",ResponseCode.INVALID_PARAMETER);
+//			throw new ProjectException("文件不存在",ResponseCode.INVALID_PARAMETER);
+			return Result.fail(ResponseCode.NOT_FOUND,"此文件不存在");
 		}
 		response.reset();
 		response.setContentType("application/octet-stream");
 		response.setCharacterEncoding("utf-8");
 		response.setContentLength((int) file.length());
-		response.setHeader("Content-Disposition", "attachment;filename=" + file.getName() );
-
+		try {
+			response.setHeader("Content-Disposition", "attachment;filename=" + URLEncoder.encode(file.getName(), "utf-8"));
+		} catch (UnsupportedEncodingException e) {
+			log.error("文件名格式化错误:" + path);
+			throw new ProjectException("文件名格式化错误",ResponseCode.LOGIC_ERROR);
+		}
+		ServletOutputStream ops = null;
 		try(
 				BufferedInputStream stream = new BufferedInputStream(Files.newInputStream(file.toPath()))
 		){
-			byte[] bytes = new byte[1024];
-			ServletOutputStream ops = response.getOutputStream();
-			int i;
-			while ((i=stream.read(bytes))!=-1){
+			byte[] bytes = new byte[10240];
+			ops = response.getOutputStream();
+			int i = 0;
+			while ((i=stream.read(bytes))>0){
 				ops.write(bytes,0,i);
 				ops.flush();
 			}
 		}catch (IOException e){
 			log.error("{} check",e);
 			return Result.fail(ResponseCode.DEFAULT_ERROR,"下载时出现异常");
+		}finally {
+			try {
+				ops.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 		return Result.ok("success");
+	}
+
+	/**
+	 * 拼接路径地址使用
+	 * @param path 传输过来的路径
+	 * @return 完整路径
+	 */
+	private String PathHelper(String path){
+		StringBuffer sb = new StringBuffer("E:\\Java\\IO\\");
+		sb.append(path);
+		return sb.toString();
 	}
 }

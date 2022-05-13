@@ -5,12 +5,13 @@ import com.example.panbackend.response.Result;
 import com.example.panbackend.service.FileService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.*;
+import com.alibaba.fastjson.*;
 
-@RestController
+import javax.servlet.http.HttpServletResponse;
+
+@Controller
 @RequestMapping("/file")
 @Slf4j
 public class FileController {
@@ -25,5 +26,16 @@ public class FileController {
 	@PostMapping("upload")
 	public Result<String> upload(@RequestBody FileUploadParam param){
 		return fileService.upload(param);
+	}
+
+
+	@PostMapping(value = "download")
+	@ResponseBody
+	public Object downLoad( HttpServletResponse response,String path){
+		Result<String> result = fileService.fileDownLoad(response,path);
+		if (result.getCode()!=200){
+			return JSON.toJSON(result);
+		}
+		return null;
 	}
 }

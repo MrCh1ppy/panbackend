@@ -1,9 +1,12 @@
 package com.example.panbackend.response;
 
+import lombok.Data;
+
 /**
  *  result
  *
  */
+@Data
 public final class Result<T> {
 	T value;
 	String msg;
@@ -83,6 +86,8 @@ public final class Result<T> {
 	public static Result<String> fail(ResponseCode code,String msg){
 		return get(code,null,msg);
 	}
+
+
 
 }
 
