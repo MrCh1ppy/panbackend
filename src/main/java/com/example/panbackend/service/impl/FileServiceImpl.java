@@ -1,15 +1,17 @@
 package com.example.panbackend.service.impl;
 
 import com.example.panbackend.dao.jpa.UserDao;
+import com.example.panbackend.entity.dto.file.FileDTO;
 import com.example.panbackend.entity.param.FileUploadParam;
 import com.example.panbackend.entity.po.User;
 import com.example.panbackend.exception.ProjectException;
 import com.example.panbackend.response.ResponseCode;
 import com.example.panbackend.response.Result;
 import com.example.panbackend.service.FileService;
+import com.example.panbackend.utils.PanFileUtils;
+import com.example.panbackend.utils.ProjectConst;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -21,6 +23,8 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -28,10 +32,9 @@ import java.util.Optional;
 public class FileServiceImpl implements FileService {
 
 	UserDao userDao;
-	@Value("${const.store.pre_path}")
-	public static String STORE_PRE_PATH;
-	@Value("${const.store.divide}")
-	public static String DIVIDE;
+
+	ProjectConst projectConst;
+	PanFileUtils panFileUtils;
 
 	@Autowired
 	public FileServiceImpl setUserDao(UserDao userDao) {
@@ -41,6 +44,7 @@ public class FileServiceImpl implements FileService {
 
 	private Result<String> doUpload(MultipartFile file,String path){
 		String fileName = file.getOriginalFilename();
+		log.info("传输文件到：{}",path);
 		File dest = new File(path + "// " + fileName);
 		if(!dest.getParentFile().exists()&&!dest.getParentFile().mkdirs()){
 			log.warn("文件夹未创建");
@@ -52,7 +56,7 @@ public class FileServiceImpl implements FileService {
 			log.warn("文件传输错误");
 			Result.fail(ResponseCode.DEFAULT_ERROR,"程序错误，请重上传");
 		}
-		return Result.ok("成功传输，路径为"+path+" "+fileName);
+		return Result.ok("成功传输，路径为"+path+ projectConst.getDivide()+fileName);
 	}
 
 	@Override
@@ -140,6 +144,29 @@ public class FileServiceImpl implements FileService {
 		return doDownLoad(response, tempPath);
 	}
 
+	@Override
+	public Result<List<FileDTO>> listPath(String path, int userID) {
+		String finalPath = pathHelper(path, userID);
+		Optional<List<FileDTO>> queryRes = doList(finalPath);
+		return queryRes.map(Result::ok).orElseGet(() -> Result.fail(ResponseCode.INVALID_PARAMETER, "非文件夹目录或其他错误"));
+	}
+
+	private Optional<List<FileDTO>> doList(String path){
+		File file = new File(path);
+		if(!file.isDirectory()){
+			return Optional.empty();
+		}
+		File[] files = file.listFiles();
+		if(files==null){
+			return Optional.empty();
+		}
+		ArrayList<FileDTO> res = new ArrayList<>(files.length);
+		for (File cur : files) {
+			res.add(panFileUtils.getFileDTO(cur));
+		}
+		return Optional.of(res);
+	}
+
 	/**
 	 * 拼接路径地址使用
 	 * @param path 传输过来的路径
@@ -150,8 +177,20 @@ public class FileServiceImpl implements FileService {
 		if(!user.isPresent()){
 			throw new ProjectException("无对应用户",ResponseCode.LOGIC_ERROR);
 		}
-		return STORE_PRE_PATH +
-				DIVIDE + userID +
-				DIVIDE + path;
+		return projectConst.getPreStorePath() +
+				projectConst.getDivide() + userID +
+				projectConst.getDivide() + path;
+	}
+
+	@Autowired
+	public FileServiceImpl setProjectConst(ProjectConst projectConst) {
+		this.projectConst = projectConst;
+		return this;
+	}
+
+	@Autowired
+	public FileServiceImpl setPanFileUtils(PanFileUtils panFileUtils) {
+		this.panFileUtils = panFileUtils;
+		return this;
 	}
 }

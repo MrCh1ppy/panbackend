@@ -42,7 +42,7 @@ public class UserServiceImpl implements UserService {
 	public Result<String> register(UserRegisterParam param) {
 		String username = param.getUsername();
 		Optional<User> byUsername = userDao.findUserByUsername(username);
-		if(!byUsername.isPresent()){
+		if(byUsername.isPresent()){
 			return Result.fail(ResponseCode.LOGIC_ERROR,"用户名已存在");
 		}
 		User user = new User(

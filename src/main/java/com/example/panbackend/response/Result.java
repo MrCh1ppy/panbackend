@@ -83,7 +83,7 @@ public final class Result<T> {
 	 * @see Result
 	 * @see String
 	 */
-	public static Result<String> fail(ResponseCode code,String msg){
+	public static <T>Result<T> fail(ResponseCode code,String msg){
 		return get(code,null,msg);
 	}
 

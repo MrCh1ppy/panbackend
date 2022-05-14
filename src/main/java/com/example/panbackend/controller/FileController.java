@@ -1,5 +1,8 @@
 package com.example.panbackend.controller;
 
+import cn.dev33.satoken.annotation.SaCheckLogin;
+import cn.dev33.satoken.stp.StpUtil;
+import com.example.panbackend.entity.dto.file.FileDTO;
 import com.example.panbackend.entity.param.FileUploadParam;
 import com.example.panbackend.response.Result;
 import com.example.panbackend.service.FileService;
@@ -9,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletResponse;
+import java.util.List;
 
 @RestController
 @RequestMapping("/file")
@@ -23,30 +27,31 @@ public class FileController {
 		return this;
 	}
 	@PostMapping("/upload")
-	public Result<String> upload(@RequestParam("userID")int userID,
-	                             @RequestParam("file") MultipartFile file,
+	@SaCheckLogin
+	public Result<String> upload(@RequestParam("file") MultipartFile file,
 	                             @RequestParam("path") String path,
                                  @RequestParam("sizeLimit")int sizeLimit,
                                  @RequestParam("sizeUnit")String sizeUnit
 
 	){
-		FileUploadParam param = new FileUploadParam(
-				file,
-				path,
-				userID,
-				sizeLimit,
-				sizeUnit
-				);
+		int id = StpUtil.getLoginIdAsInt();
+		FileUploadParam param = new FileUploadParam(file, path, id, sizeLimit, sizeUnit);
 		return fileService.upload(param);
 	}
 
+	@PostMapping(value = "list")
+	public Result<List<FileDTO>>listFile(){
+		// TODO: 2022.5.14
+		return null;
+	}
 
 	@PostMapping(value = "/download")
 	@ResponseBody
-	public Result<String> downLoad( HttpServletResponse response
-			,@RequestParam("path") String path
-			,@RequestParam("userID") int userID){
-		Result<String> result = fileService.fileDownLoad(response,path,userID);
+	@SaCheckLogin
+	public Result<String> downLoad( HttpServletResponse response,
+	                                @RequestParam("path") String path){
+		int id = StpUtil.getLoginIdAsInt();
+		Result<String> result = fileService.fileDownLoad(response,path,id);
 		if(result.getCode()==200){
 			return null;
 		}

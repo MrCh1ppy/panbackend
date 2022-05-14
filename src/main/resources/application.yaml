@@ -2,7 +2,6 @@ server:
   port: 8084
 spring:
   redis:
-    password: 737713
     host: 47.98.206.89
     lettuce:
       pool:
@@ -25,6 +24,11 @@ mybatis:
 logging:
   level:
     com.example.pan_back_end: debug
+sa-token:
+  is-log: true
+  timeout: 2592000
+  token-style: simple-uuid
+  token-name: token
 const:
   store:
     pre_path: "D://PAN//IO"
