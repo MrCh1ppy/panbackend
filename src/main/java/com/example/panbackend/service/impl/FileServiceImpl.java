@@ -2,6 +2,7 @@ package com.example.panbackend.service.impl;
 
 import com.example.panbackend.dao.jpa.UserDao;
 import com.example.panbackend.entity.dto.file.FileDTO;
+import com.example.panbackend.entity.dto.file.FileTreeDTO;
 import com.example.panbackend.entity.param.FileUploadParam;
 import com.example.panbackend.entity.po.User;
 import com.example.panbackend.exception.ProjectException;
@@ -23,9 +24,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 @Slf4j
@@ -39,6 +38,18 @@ public class FileServiceImpl implements FileService {
 	@Autowired
 	public FileServiceImpl setUserDao(UserDao userDao) {
 		this.userDao = userDao;
+		return this;
+	}
+
+	@Autowired
+	public FileServiceImpl setProjectConst(ProjectConst projectConst) {
+		this.projectConst = projectConst;
+		return this;
+	}
+
+	@Autowired
+	public FileServiceImpl setPanFileUtils(PanFileUtils panFileUtils) {
+		this.panFileUtils = panFileUtils;
 		return this;
 	}
 
@@ -151,6 +162,47 @@ public class FileServiceImpl implements FileService {
 		return queryRes.map(Result::ok).orElseGet(() -> Result.fail(ResponseCode.INVALID_PARAMETER, "非文件夹目录或其他错误"));
 	}
 
+	@Override
+	public Result<FileTreeDTO> getFileTree(String paramPath, int userID) {
+		String path = pathHelper(paramPath, userID);
+		Optional<FileTreeDTO> res = doGetFileTree(path);
+		return res.map(Result::ok).orElseGet(() -> Result.fail(ResponseCode.LOGIC_ERROR, "获取树失败"));
+	}
+
+	private Optional<FileTreeDTO> doGetFileTree(String paramPath){
+		log.info("打印目录为{}的文件树",paramPath);
+		File file = new File(paramPath);
+		if (!file.exists()){
+			return Optional.empty();
+		}
+
+		ArrayDeque<File> deque = new ArrayDeque<>();
+		HashMap<File, FileTreeDTO> map = new HashMap<>();
+
+		deque.push(file);
+		FileTreeDTO root = new FileTreeDTO(panFileUtils.getFileDTO(file), new ArrayList<>());
+		map.put(file,root);
+
+		while (!deque.isEmpty()){
+
+			File temp = deque.poll();
+			FileTreeDTO treeDTO = map.remove(file);
+
+			File[] listFiles = temp.listFiles();
+			File[] files = listFiles==null?new File[0]:listFiles;
+
+			for (File cur : files) {
+				FileTreeDTO node = new FileTreeDTO(panFileUtils.getFileDTO(cur), new ArrayList<>());
+				treeDTO.getFileTreeDTOList().add(node);
+				if(cur.isDirectory()){
+					deque.push(cur);
+					map.put(cur,node);
+				}
+			}
+		}
+		return Optional.of(root);
+	}
+
 	private Optional<List<FileDTO>> doList(String path){
 		File file = new File(path);
 		if(!file.isDirectory()){
@@ -182,15 +234,5 @@ public class FileServiceImpl implements FileService {
 				projectConst.getDivide() + path;
 	}
 
-	@Autowired
-	public FileServiceImpl setProjectConst(ProjectConst projectConst) {
-		this.projectConst = projectConst;
-		return this;
-	}
 
-	@Autowired
-	public FileServiceImpl setPanFileUtils(PanFileUtils panFileUtils) {
-		this.panFileUtils = panFileUtils;
-		return this;
-	}
 }

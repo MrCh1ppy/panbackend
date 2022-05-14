@@ -3,6 +3,7 @@ package com.example.panbackend.controller;
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.stp.StpUtil;
 import com.example.panbackend.entity.dto.file.FileDTO;
+import com.example.panbackend.entity.dto.file.FileTreeDTO;
 import com.example.panbackend.entity.param.FileUploadParam;
 import com.example.panbackend.response.Result;
 import com.example.panbackend.service.FileService;
@@ -57,5 +58,12 @@ public class FileController {
 			return null;
 		}
 		return result;
+	}
+
+	@SaCheckLogin
+	@PostMapping("/tree")
+	public Result<FileTreeDTO>getFileTree(@RequestParam("path") String path){
+		int id = StpUtil.getLoginIdAsInt();
+		return fileService.getFileTree(path, id);
 	}
 }

@@ -39,7 +39,7 @@ public final class PanFileUtils {
 				FileUtil.getCanonicalPath(file).substring(projectConst.getPreStorePath().length()),
 				showSize,
 				showSizeUnit,
-				FileUtil.getType(file)
+				file.isDirectory()?"directory":FileUtil.getType(file)
 		);
 	}
 	@Autowired
