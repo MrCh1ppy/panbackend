@@ -22,13 +22,12 @@ public final class PanFileUtils {
 	}
 
 	public FileDTO getFileDTO(File file){
-		long size = FileUtil.size(file);
+		double size = FileUtil.size(file);
 		short index=0;
-		double showSize;
+		double showSize=size;
 		String showSizeUnit;
 		while (true){
 			if(size<1024){
-				showSize=size/1024.0;
 				showSizeUnit=sizeUnit[index];
 				break;
 			}

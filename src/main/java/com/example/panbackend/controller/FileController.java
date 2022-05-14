@@ -40,9 +40,10 @@ public class FileController {
 	}
 
 	@PostMapping(value = "list")
-	public Result<List<FileDTO>>listFile(){
-		// TODO: 2022.5.14
-		return null;
+	@SaCheckLogin
+	public Result<List<FileDTO>>listFile(@RequestParam("path")String path){
+		int id = StpUtil.getLoginIdAsInt();
+		return fileService.listPath(path, id);
 	}
 
 	@PostMapping(value = "/download")
