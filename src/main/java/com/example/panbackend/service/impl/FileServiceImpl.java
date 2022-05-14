@@ -171,22 +171,22 @@ public class FileServiceImpl implements FileService {
 
 	private Optional<FileTreeDTO> doGetFileTree(String paramPath){
 		log.info("打印目录为{}的文件树",paramPath);
-		File file = new File(paramPath);
-		if (!file.exists()){
+		File rootFile = new File(paramPath);
+		if (!rootFile.exists()){
 			return Optional.empty();
 		}
 
 		ArrayDeque<File> deque = new ArrayDeque<>();
 		HashMap<File, FileTreeDTO> map = new HashMap<>();
 
-		deque.push(file);
-		FileTreeDTO root = new FileTreeDTO(panFileUtils.getFileDTO(file), new ArrayList<>());
-		map.put(file,root);
+		deque.push(rootFile);
+		FileTreeDTO root = new FileTreeDTO(panFileUtils.getFileDTO(rootFile), new ArrayList<>());
+		map.put(rootFile,root);
 
 		while (!deque.isEmpty()){
 
 			File temp = deque.poll();
-			FileTreeDTO treeDTO = map.remove(file);
+			FileTreeDTO treeDTO = map.remove(temp);
 
 			File[] listFiles = temp.listFiles();
 			File[] files = listFiles==null?new File[0]:listFiles;
