@@ -23,7 +23,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.nio.file.Files;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 
 @Service
@@ -221,39 +222,56 @@ public class FileServiceImpl implements FileService {
 
 
 	@Override
-	public Result<String> fileDelete(String path,int userId){
+	public Result<String> fileDelete(String path,int userId) {
 		String deletePath = pathHelper(path,userId);
-//		String deletePath = path;
-		Boolean result = delete(deletePath);
-		if (result){
+		Path rootPath = Paths.get(deletePath);
+		log.info("delete{}",rootPath);
+		try {
+			Files.walkFileTree(rootPath,new SimpleFileVisitor<Path>(){
+
+				/**
+				 * Invoked for a file in a directory.
+				 *
+				 * <p> Unless overridden, this method returns {@link FileVisitResult#CONTINUE
+				 * CONTINUE}.
+				 *
+				 * @param file 查看的对象
+				 * @param attrs 无用
+				 */
+				@Override
+				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+					Files.delete(file);
+					return super.visitFile(file, attrs);
+				}
+
+				/**
+				 * Invoked for a directory after entries in the directory, and all of their
+				 * descendants, have been visited.
+				 *
+				 * <p> Unless overridden, this method returns {@link FileVisitResult#CONTINUE
+				 * CONTINUE} if the directory iteration completes without an I/O exception;
+				 * otherwise this method re-throws the I/O exception that caused the iteration
+				 * of the directory to terminate prematurely.
+				 *
+				 * @param dir 目录Path
+				 * @param exc 无用
+				 */
+				@Override
+				public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+					Files.delete(dir);
+					return super.postVisitDirectory(dir, exc);
+				}
+			});
 			return Result.ok("删除成功");
-		}else {
-			return Result.fail(ResponseCode.INVALID_PARAMETER,"文件删除失败");
+		} catch (IOException e) {
+			e.printStackTrace();
+			return Result.ok("删除失败");
 		}
 	}
 
-	private boolean delete(String path){
-		File file = new File(path);
-		if (file.exists()){
-			if (file.isFile()||file.listFiles().length==0){
-				file.delete();
-				return true;
-			}else {
-				deleteFiles(file);
-				return true;
-			}
-		}else {
-			return false;
-		}
-	}
-    private void deleteFiles(File file){
-		File[] files = file.listFiles();
-		if (files!=null&&files.length!=0){
-			for (File f : files){
-				this.deleteFiles(f);
-			}
-		}
-		file.delete();
+	@Override
+	public Result<String> shareFile(String path, int id) {
+		return null;
 	}
 
 	/**

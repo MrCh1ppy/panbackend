@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletResponse;
+import javax.websocket.server.PathParam;
 import java.util.List;
 
 @RestController
@@ -68,8 +69,17 @@ public class FileController {
 	}
 
 	@PostMapping("/delete")
+	@SaCheckLogin
 	public Result<String> delete(@RequestParam("path") String path){
 		int id = StpUtil.getLoginIdAsInt();
 		return fileService.fileDelete(path,id);
+	}
+
+	@GetMapping("/share")
+	@SaCheckLogin
+	public Result<String> shareFile(@PathParam("path")String path){
+		int id = StpUtil.getLoginIdAsInt();
+		Result<String> res=fileService.shareFile(path,id);
+		return null;
 	}
 }
