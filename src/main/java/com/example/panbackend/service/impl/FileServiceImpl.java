@@ -1,5 +1,6 @@
 package com.example.panbackend.service.impl;
 
+import cn.hutool.core.util.ArrayUtil;
 import com.example.panbackend.dao.jpa.UserDao;
 import com.example.panbackend.entity.dto.file.FileDTO;
 import com.example.panbackend.entity.dto.file.FileTreeDTO;
@@ -54,10 +55,13 @@ public class FileServiceImpl implements FileService {
 		return this;
 	}
 
-	private Result<String> doUpload(MultipartFile file,String path){
+	private Result<String> doUpload(MultipartFile file,Path path){
 		String fileName = file.getOriginalFilename();
 		log.info("传输文件到：{}",path);
-		File dest = new File(path + "// " + fileName);
+		if(fileName==null){
+			return Result.fail(ResponseCode.DEFAULT_ERROR,"文件名为空");
+		}
+		File dest = path.resolve(fileName).toFile();
 		if(!dest.getParentFile().exists()&&!dest.getParentFile().mkdirs()){
 			log.warn("文件夹未创建");
 			return Result.fail(ResponseCode.DEFAULT_ERROR,"文件夹创建失败");
@@ -68,15 +72,15 @@ public class FileServiceImpl implements FileService {
 			log.warn("文件传输错误");
 			Result.fail(ResponseCode.DEFAULT_ERROR,"程序错误，请重上传");
 		}
-		return Result.ok("成功传输，路径为"+path+ projectConst.getDivide()+fileName);
+		return Result.ok("成功传输，路径为"+ path);
 	}
 
 	@Override
-	public Result<String> upload(FileUploadParam param) {
+	public Result<String> upload(FileUploadParam param,String divide) {
 		if (checkSize(param.getFile(),param.getSizeLimit(),param.getSizeUnit())){
 			return Result.fail(ResponseCode.LOGIC_ERROR,"文件超过大小");
 		}
-		String path = pathHelper(param.getPath(), param.getUserID());
+		Path path = pathBuilder(param.getPath(), param.getUserID(),divide);
 		return doUpload(param.getFile(), path);
 	}
 
@@ -108,9 +112,9 @@ public class FileServiceImpl implements FileService {
 		return fileSize<size;
 	}
 
-	private Result<String>doDownLoad(HttpServletResponse response,String path){
+	private Result<String>doDownLoad(HttpServletResponse response,Path path){
 		log.info("download file:{}",path);
-		File file = new File(path);
+		File file = path.toFile();
 		if(!file.exists()){
 			return Result.fail(ResponseCode.NOT_FOUND,"此文件不存在");
 		}
@@ -151,28 +155,28 @@ public class FileServiceImpl implements FileService {
 	}
 
 	@Override
-	public Result<String> fileDownLoad(HttpServletResponse response,String path,int userId)  {
-		String tempPath = pathHelper(path, userId);
+	public Result<String> fileDownLoad(HttpServletResponse response,String path,int userId,String divide)  {
+		Path tempPath = pathBuilder(path, userId,divide);
 		return doDownLoad(response, tempPath);
 	}
 
 	@Override
-	public Result<List<FileDTO>> listPath(String path, int userID) {
-		String finalPath = pathHelper(path, userID);
+	public Result<List<FileDTO>> listPath(String path, int userID,String divide) {
+		Path finalPath = pathBuilder(path, userID,divide);
 		Optional<List<FileDTO>> queryRes = doList(finalPath);
 		return queryRes.map(Result::ok).orElseGet(() -> Result.fail(ResponseCode.INVALID_PARAMETER, "非文件夹目录或其他错误"));
 	}
 
 	@Override
-	public Result<FileTreeDTO> getFileTree(String paramPath, int userID) {
-		String path = pathHelper(paramPath, userID);
+	public Result<FileTreeDTO> getFileTree(String paramPath, int userID,String divide) {
+		Path path = pathBuilder(paramPath, userID,divide);
 		Optional<FileTreeDTO> res = doGetFileTree(path);
 		return res.map(Result::ok).orElseGet(() -> Result.fail(ResponseCode.LOGIC_ERROR, "获取树失败"));
 	}
 
-	private Optional<FileTreeDTO> doGetFileTree(String paramPath){
+	private Optional<FileTreeDTO> doGetFileTree(Path paramPath){
 		log.info("打印目录为{}的文件树",paramPath);
-		File rootFile = new File(paramPath);
+		File rootFile = paramPath.toFile();
 		if (!rootFile.exists()){
 			return Optional.empty();
 		}
@@ -204,8 +208,8 @@ public class FileServiceImpl implements FileService {
 		return Optional.of(root);
 	}
 
-	private Optional<List<FileDTO>> doList(String path){
-		File file = new File(path);
+	private Optional<List<FileDTO>> doList(Path path){
+		File file = path.toFile();
 		if(!file.isDirectory()){
 			return Optional.empty();
 		}
@@ -222,9 +226,8 @@ public class FileServiceImpl implements FileService {
 
 
 	@Override
-	public Result<String> fileDelete(String path,int userId) {
-		String deletePath = pathHelper(path,userId);
-		Path rootPath = Paths.get(deletePath);
+	public Result<String> fileDelete(String path,int userId,String divide) {
+		Path rootPath = pathBuilder(path,userId,divide);
 		log.info("delete{}",rootPath);
 		try {
 			Files.walkFileTree(rootPath,new SimpleFileVisitor<Path>(){
@@ -270,23 +273,22 @@ public class FileServiceImpl implements FileService {
 	}
 
 	@Override
-	public Result<String> shareFile(String path, int id) {
+	public Result<String> shareFile(String path, int id,String divide) {
+		File file = Paths.get(path).toFile();
+// TODO: 2022.5.15
 		return null;
 	}
 
-	/**
-	 * 拼接路径地址使用
-	 * @param path 传输过来的路径
-	 * @return 完整路径
-	 */
-	private String pathHelper(String path,int userID){
+	private Path pathBuilder(String path,int userID,String divide){
 		Optional<User> user = userDao.findById(userID);
 		if(!user.isPresent()){
 			throw new ProjectException("无对应用户",ResponseCode.LOGIC_ERROR);
 		}
-		return projectConst.getPreStorePath() +
-				projectConst.getDivide() + userID +
-				projectConst.getDivide() + path;
+		String[] split = path.split(divide);
+		String[] param = ArrayUtil.sub(split, 1, split.length);
+		return projectConst
+				.getPrePath()
+				.resolve(Integer.toString(userID)).resolve(Paths.get(split[0], param));
 	}
 
 
