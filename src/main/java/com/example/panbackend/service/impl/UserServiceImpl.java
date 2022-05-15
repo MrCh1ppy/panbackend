@@ -1,8 +1,10 @@
 package com.example.panbackend.service.impl;
 
+import cn.dev33.satoken.stp.SaTokenInfo;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.crypto.SecureUtil;
 import com.example.panbackend.dao.jpa.UserDao;
+import com.example.panbackend.entity.dto.token.TokenInfoDTO;
 import com.example.panbackend.entity.param.UserLoginParam;
 import com.example.panbackend.entity.param.UserRegisterParam;
 import com.example.panbackend.entity.po.User;
@@ -66,7 +68,7 @@ public class UserServiceImpl implements UserService {
 	 * @see String
 	 */
 	@Override
-	public Result<String> login(UserLoginParam param) {
+	public Result<TokenInfoDTO> login(UserLoginParam param) {
 		Optional<User> user = userDao.findUserByUsername(param.getUsername());
 		if(!user.isPresent()){
 			return Result.fail(ResponseCode.LOGIC_ERROR,"无对应用户名");
@@ -77,7 +79,7 @@ public class UserServiceImpl implements UserService {
 			return Result.fail(ResponseCode.LOGIC_ERROR,"密码错误");
 		}
 		StpUtil.login(temp.getId());
-		String token = StpUtil.getTokenValue();
-		return Result.ok(token);
+		SaTokenInfo info = StpUtil.getTokenInfo();
+		return Result.ok(TokenInfoDTO.getInstance(info));
 	}
 }

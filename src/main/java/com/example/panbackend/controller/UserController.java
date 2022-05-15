@@ -1,5 +1,7 @@
 package com.example.panbackend.controller;
 
+import cn.dev33.satoken.stp.SaTokenInfo;
+import com.example.panbackend.entity.dto.token.TokenInfoDTO;
 import com.example.panbackend.entity.param.UserLoginParam;
 import com.example.panbackend.entity.param.UserRegisterParam;
 import com.example.panbackend.response.Result;
@@ -23,7 +25,7 @@ public class UserController {
 	}
 
 	@GetMapping("/login")
-	public Result<String> login(@RequestBody UserLoginParam userLoginParam){
+	public Result<TokenInfoDTO> login(@RequestBody UserLoginParam userLoginParam){
 		return userService.login(userLoginParam);
 	}
 

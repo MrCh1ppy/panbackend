@@ -12,6 +12,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+    open-in-view: false
   datasource:
     username: pan_back
     password: F6my6acdmNxJKknG
