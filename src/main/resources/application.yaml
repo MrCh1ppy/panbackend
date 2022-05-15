@@ -33,4 +33,4 @@ sa-token:
 const:
   store:
     pre_path: "D:\\PAN\\IO"
-    divide: '\'
+    divide: '\\'

@@ -13,13 +13,13 @@ public final class PanFileUtils {
 	private ProjectConst projectConst;
 	private static final String[] sizeUnit={"Byte","KB","MB","GB","TB"};
 
-	private PanFileUtils() {
-	}
-
+	private static int prePathSize=-1;
 	@Autowired
 	public PanFileUtils(ProjectConst projectConst) {
 		this.projectConst = projectConst;
 	}
+
+
 
 	public FileDTO getFileDTO(File file){
 		double size = FileUtil.size(file);
@@ -36,7 +36,7 @@ public final class PanFileUtils {
 		}
 		return new FileDTO(
 				FileUtil.getName(file),
-				file.toPath(),
+				file.toPath().toString().substring(getPrePathSize()),
 				showSize,
 				showSizeUnit,
 				file.isDirectory()?"directory":FileUtil.getType(file)
@@ -46,5 +46,13 @@ public final class PanFileUtils {
 	public PanFileUtils setProjectConst(ProjectConst projectConst) {
 		this.projectConst = projectConst;
 		return this;
+	}
+
+	public int getPrePathSize() {
+		if(prePathSize!=-1){
+			return prePathSize;
+		}
+		prePathSize=projectConst.getPrePath().toString().length();
+		return prePathSize;
 	}
 }
