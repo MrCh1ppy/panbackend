@@ -33,6 +33,7 @@ import java.net.URLEncoder;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
@@ -257,6 +258,14 @@ public class FileServiceImpl implements FileService {
 				 */
 				@Override
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+					int i = file.hashCode();
+					//防止文件删除了，分享码依旧存在
+					String key = redisTemplate
+							.opsForValue()
+							.get(projectConst.getFileToKey() + i);
+					if(key!=null){
+						redisTemplate.delete(key);
+					}
 					Files.delete(file);
 					return super.visitFile(file, attrs);
 				}
@@ -294,9 +303,19 @@ public class FileServiceImpl implements FileService {
 		}
 		String key = NanoId.randomNanoId(8);
 		int i = file.hashCode();
-		redisTemplate.opsForValue().set(projectConst.getFileToKey()+i,key);
-		redisTemplate.opsForValue().set(projectConst.getKeyToFile()+key,path);
+		redisTemplate.opsForValue().set(projectConst.getFileToKey()+i,key,num, TimeUnit.HOURS);
+		redisTemplate.opsForValue().set(projectConst.getKeyToFile()+key,path,num,TimeUnit.HOURS);
 		return Result.ok(key);
+	}
+
+	@Override
+	public Result<String> receiveFile(HttpServletResponse response, String code) {
+		String res = redisTemplate.opsForValue()
+				.get(projectConst.getKeyToFile() + code);
+		if(res==null){
+			return Result.fail(ResponseCode.NOT_FOUND,"文件已删除或分享超时");
+		}
+		return doDownLoad(response, Paths.get(code));
 	}
 
 	private Path pathBuilder(String path,int userID,String divide){

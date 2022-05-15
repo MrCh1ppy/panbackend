@@ -83,8 +83,18 @@ public class FileController {
 	@SaCheckLogin
 	public Result<String> shareFile(@RequestParam("path")String path,
 	                                @RequestParam("share_time")String num,
-	                                @RequestParam("divide")String divide){
+	                                @RequestParam("divide")String divide
+	){
 		int id = StpUtil.getLoginIdAsInt();
 		return fileService.shareFile(path, id, divide, Integer.parseInt(num));
+	}
+
+	@ResponseBody
+	@PostMapping("/receive")
+	public Result<String> getShareFile(
+			HttpServletResponse response,
+			@RequestParam("code") String code
+	){
+		return fileService.receiveFile(response, code);
 	}
 }
