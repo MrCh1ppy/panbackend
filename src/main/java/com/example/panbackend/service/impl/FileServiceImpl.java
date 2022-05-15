@@ -219,6 +219,43 @@ public class FileServiceImpl implements FileService {
 		return Optional.of(res);
 	}
 
+
+	@Override
+	public Result<String> fileDelete(String path,int userId){
+		String deletePath = pathHelper(path,userId);
+//		String deletePath = path;
+		Boolean result = delete(deletePath);
+		if (result){
+			return Result.ok("删除成功");
+		}else {
+			return Result.fail(ResponseCode.INVALID_PARAMETER,"文件删除失败");
+		}
+	}
+
+	private boolean delete(String path){
+		File file = new File(path);
+		if (file.exists()){
+			if (file.isFile()||file.listFiles().length==0){
+				file.delete();
+				return true;
+			}else {
+				deleteFiles(file);
+				return true;
+			}
+		}else {
+			return false;
+		}
+	}
+    private void deleteFiles(File file){
+		File[] files = file.listFiles();
+		if (files!=null&&files.length!=0){
+			for (File f : files){
+				this.deleteFiles(f);
+			}
+		}
+		file.delete();
+	}
+
 	/**
 	 * 拼接路径地址使用
 	 * @param path 传输过来的路径

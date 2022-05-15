@@ -16,4 +16,6 @@ public interface FileService {
 	Result<List<FileDTO>> listPath(String path,int userID);
 
 	Result<FileTreeDTO> getFileTree(String path,int userID);
+
+	Result<String> fileDelete(String path,int userId);
 }

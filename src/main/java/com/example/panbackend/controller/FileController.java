@@ -66,4 +66,10 @@ public class FileController {
 		int id = StpUtil.getLoginIdAsInt();
 		return fileService.getFileTree(path, id);
 	}
+
+	@PostMapping("/delete")
+	public Result<String> delete(@RequestParam("path") String path){
+		int id = StpUtil.getLoginIdAsInt();
+		return fileService.fileDelete(path,id);
+	}
 }
