@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletResponse;
-import javax.websocket.server.PathParam;
 import java.util.List;
 
 @RestController
@@ -33,28 +32,31 @@ public class FileController {
 	public Result<String> upload(@RequestParam("file") MultipartFile file,
 	                             @RequestParam("path") String path,
                                  @RequestParam("sizeLimit")int sizeLimit,
-                                 @RequestParam("sizeUnit")String sizeUnit
+                                 @RequestParam("sizeUnit")String sizeUnit,
+                                 @RequestParam("divide")String divide
 
 	){
 		int id = StpUtil.getLoginIdAsInt();
 		FileUploadParam param = new FileUploadParam(file, path, id, sizeLimit, sizeUnit);
-		return fileService.upload(param,"-");
+		return fileService.upload(param,divide);
 	}
 
 	@PostMapping(value = "list")
 	@SaCheckLogin
-	public Result<List<FileDTO>>listFile(@RequestParam("path")String path){
+	public Result<List<FileDTO>>listFile(@RequestParam("path")String path,
+	                                     @RequestParam("divide")String divide){
 		int id = StpUtil.getLoginIdAsInt();
-		return fileService.listPath(path, id,"-");
+		return fileService.listPath(path, id,divide);
 	}
 
 	@PostMapping(value = "/download")
 	@ResponseBody
 	@SaCheckLogin
 	public Result<String> downLoad( HttpServletResponse response,
-	                                @RequestParam("path") String path){
+	                                @RequestParam("path") String path,
+	                                @RequestParam("divide")String divide){
 		int id = StpUtil.getLoginIdAsInt();
-		Result<String> result = fileService.fileDownLoad(response,path,id,"-");
+		Result<String> result = fileService.fileDownLoad(response,path,id,divide);
 		if(result.getCode()==200){
 			return null;
 		}
@@ -63,23 +65,26 @@ public class FileController {
 
 	@SaCheckLogin
 	@PostMapping("/tree")
-	public Result<FileTreeDTO>getFileTree(@RequestParam("path") String path){
+	public Result<FileTreeDTO>getFileTree(@RequestParam("path") String path,
+	                                      @RequestParam("divide")String divide){
 		int id = StpUtil.getLoginIdAsInt();
-		return fileService.getFileTree(path, id,"-");
+		return fileService.getFileTree(path, id,divide);
 	}
 
 	@PostMapping("/delete")
 	@SaCheckLogin
-	public Result<String> delete(@RequestParam("path") String path){
+	public Result<String> delete(@RequestParam("path") String path,
+	                             @RequestParam("divide")String divide){
 		int id = StpUtil.getLoginIdAsInt();
-		return fileService.fileDelete(path,id,"-");
+		return fileService.fileDelete(path,id,divide);
 	}
 
 	@GetMapping("/share")
 	@SaCheckLogin
-	public Result<String> shareFile(@PathParam("path")String path){
+	public Result<String> shareFile(@RequestParam("path")String path,
+	                                @RequestParam("share_time")String num,
+	                                @RequestParam("divide")String divide){
 		int id = StpUtil.getLoginIdAsInt();
-		Result<String> res=fileService.shareFile(path,id,"-");
-		return null;
+		return fileService.shareFile(path, id, divide, Integer.parseInt(num));
 	}
 }

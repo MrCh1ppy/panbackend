@@ -34,3 +34,6 @@ const:
   store:
     pre_path: "D:\\PAN\\IO"
     divide: '\\'
+  share:
+    key_file_pre: "key_to_file:"
+    file_key_pre: "file_to_key:"

@@ -19,6 +19,6 @@ public interface FileService {
 
 	Result<String> fileDelete(String path,int userId,String divide);
 
-	Result<String> shareFile(String path, int id,String divide);
+	Result<String> shareFile(String path, int id,String divide,int num);
 }
 

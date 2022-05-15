@@ -1,6 +1,9 @@
 package com.example.panbackend.service.impl;
 
+import cn.hutool.captcha.CaptchaUtil;
+import cn.hutool.core.lang.id.NanoId;
 import cn.hutool.core.util.ArrayUtil;
+import cn.hutool.crypto.SecureUtil;
 import com.example.panbackend.dao.jpa.UserDao;
 import com.example.panbackend.entity.dto.file.FileDTO;
 import com.example.panbackend.entity.dto.file.FileTreeDTO;
@@ -12,11 +15,14 @@ import com.example.panbackend.response.Result;
 import com.example.panbackend.service.FileService;
 import com.example.panbackend.utils.PanFileUtils;
 import com.example.panbackend.utils.ProjectConst;
+import io.netty.util.internal.StringUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.annotation.Resource;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedInputStream;
@@ -36,6 +42,14 @@ public class FileServiceImpl implements FileService {
 
 	ProjectConst projectConst;
 	PanFileUtils panFileUtils;
+
+	StringRedisTemplate redisTemplate;
+
+	@Resource
+	public FileServiceImpl setRedisTemplate(StringRedisTemplate redisTemplate) {
+		this.redisTemplate = redisTemplate;
+		return this;
+	}
 
 	@Autowired
 	public FileServiceImpl setUserDao(UserDao userDao) {
@@ -273,10 +287,16 @@ public class FileServiceImpl implements FileService {
 	}
 
 	@Override
-	public Result<String> shareFile(String path, int id,String divide) {
-		File file = Paths.get(path).toFile();
-// TODO: 2022.5.15
-		return null;
+	public Result<String> shareFile(String path, int id,String divide,int num) {
+		File file = pathBuilder(path, id, divide).toFile();
+		if(!file.exists()){
+			return Result.fail(ResponseCode.LOGIC_ERROR,"文件已不存在");
+		}
+		String key = NanoId.randomNanoId(8);
+		int i = file.hashCode();
+		redisTemplate.opsForValue().set(projectConst.getFileToKey()+i,key);
+		redisTemplate.opsForValue().set(projectConst.getKeyToFile()+key,path);
+		return Result.ok(key);
 	}
 
 	private Path pathBuilder(String path,int userID,String divide){
