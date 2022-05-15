@@ -38,14 +38,14 @@ public class FileController {
 	){
 		int id = StpUtil.getLoginIdAsInt();
 		FileUploadParam param = new FileUploadParam(file, path, id, sizeLimit, sizeUnit);
-		return fileService.upload(param);
+		return fileService.upload(param,"-");
 	}
 
 	@PostMapping(value = "list")
 	@SaCheckLogin
 	public Result<List<FileDTO>>listFile(@RequestParam("path")String path){
 		int id = StpUtil.getLoginIdAsInt();
-		return fileService.listPath(path, id);
+		return fileService.listPath(path, id,"-");
 	}
 
 	@PostMapping(value = "/download")
@@ -54,7 +54,7 @@ public class FileController {
 	public Result<String> downLoad( HttpServletResponse response,
 	                                @RequestParam("path") String path){
 		int id = StpUtil.getLoginIdAsInt();
-		Result<String> result = fileService.fileDownLoad(response,path,id);
+		Result<String> result = fileService.fileDownLoad(response,path,id,"-");
 		if(result.getCode()==200){
 			return null;
 		}
@@ -65,21 +65,21 @@ public class FileController {
 	@PostMapping("/tree")
 	public Result<FileTreeDTO>getFileTree(@RequestParam("path") String path){
 		int id = StpUtil.getLoginIdAsInt();
-		return fileService.getFileTree(path, id);
+		return fileService.getFileTree(path, id,"-");
 	}
 
 	@PostMapping("/delete")
 	@SaCheckLogin
 	public Result<String> delete(@RequestParam("path") String path){
 		int id = StpUtil.getLoginIdAsInt();
-		return fileService.fileDelete(path,id);
+		return fileService.fileDelete(path,id,"-");
 	}
 
 	@GetMapping("/share")
 	@SaCheckLogin
 	public Result<String> shareFile(@PathParam("path")String path){
 		int id = StpUtil.getLoginIdAsInt();
-		Result<String> res=fileService.shareFile(path,id);
+		Result<String> res=fileService.shareFile(path,id,"-");
 		return null;
 	}
 }

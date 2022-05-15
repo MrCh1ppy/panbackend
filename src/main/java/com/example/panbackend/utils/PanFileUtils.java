@@ -36,7 +36,7 @@ public final class PanFileUtils {
 		}
 		return new FileDTO(
 				FileUtil.getName(file),
-				FileUtil.getCanonicalPath(file).substring(projectConst.getPreStorePath().length()),
+				file.toPath(),
 				showSize,
 				showSizeUnit,
 				file.isDirectory()?"directory":FileUtil.getType(file)

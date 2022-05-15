@@ -9,16 +9,16 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.List;
 
 public interface FileService {
-	Result<String> upload(FileUploadParam param);
+	Result<String> upload(FileUploadParam param,String divide);
 
-	Result<String> fileDownLoad(HttpServletResponse response,String path,int userID);
+	Result<String> fileDownLoad(HttpServletResponse response,String path,int userID,String divide);
 
-	Result<List<FileDTO>> listPath(String path,int userID);
+	Result<List<FileDTO>> listPath(String path,int userID,String divide);
 
-	Result<FileTreeDTO> getFileTree(String path,int userID);
+	Result<FileTreeDTO> getFileTree(String path,int userID,String divide);
 
-	Result<String> fileDelete(String path,int userId);
+	Result<String> fileDelete(String path,int userId,String divide);
 
-	Result<String> shareFile(String path, int id);
+	Result<String> shareFile(String path, int id,String divide);
 }
 
