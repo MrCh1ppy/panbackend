@@ -1,5 +1,5 @@
 server:
-  port: 8084
+  port: 9004
 spring:
   redis:
     host: 47.98.206.89
@@ -32,7 +32,7 @@ sa-token:
   token-name: token
 const:
   store:
-    pre_path: "D:\\PAN\\IO"
+    pre_path: "/project_cache/pan"
     divide: '\\'
   share:
     key_file_pre: "key_to_file:"
