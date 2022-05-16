@@ -20,6 +20,10 @@ spring:
     url: jdbc:mysql://47.98.206.89:3306/pan_back
   jackson:
     default-property-inclusion: non_null
+  servlet:
+    multipart:
+      max-file-size: 2048MB
+      max-request-size: 2048MB
 mybatis:
   type-aliases-package: com.example.panbackend.entity.po
 logging:
@@ -31,9 +35,6 @@ sa-token:
   token-style: simple-uuid
   token-name: token
 const:
-  store:
-    pre_path: "/project_cache/pan"
-    divide: '\\'
   share:
     key_file_pre: "key_to_file:"
     file_key_pre: "file_to_key:"

@@ -11,5 +11,5 @@ public class PanbackendApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(PanbackendApplication.class, args);
 	}
-
 }
+
