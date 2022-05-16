@@ -1,9 +1,7 @@
 package com.example.panbackend.service.impl;
 
-import cn.hutool.captcha.CaptchaUtil;
 import cn.hutool.core.lang.id.NanoId;
 import cn.hutool.core.util.ArrayUtil;
-import cn.hutool.crypto.SecureUtil;
 import com.example.panbackend.dao.jpa.UserDao;
 import com.example.panbackend.entity.dto.file.FileDTO;
 import com.example.panbackend.entity.dto.file.FileTreeDTO;
@@ -15,7 +13,6 @@ import com.example.panbackend.response.Result;
 import com.example.panbackend.service.FileService;
 import com.example.panbackend.utils.PanFileUtils;
 import com.example.panbackend.utils.ProjectConst;
-import io.netty.util.internal.StringUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -44,11 +41,11 @@ public class FileServiceImpl implements FileService {
 	ProjectConst projectConst;
 	PanFileUtils panFileUtils;
 
-	StringRedisTemplate redisTemplate;
+	StringRedisTemplate stringRedisTemplate;
 
 	@Resource
-	public FileServiceImpl setRedisTemplate(StringRedisTemplate redisTemplate) {
-		this.redisTemplate = redisTemplate;
+	public FileServiceImpl setStringRedisTemplate(StringRedisTemplate stringRedisTemplate) {
+		this.stringRedisTemplate = stringRedisTemplate;
 		return this;
 	}
 
@@ -260,11 +257,11 @@ public class FileServiceImpl implements FileService {
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 					int i = file.hashCode();
 					//防止文件删除了，分享码依旧存在
-					String key = redisTemplate
+					String key = stringRedisTemplate
 							.opsForValue()
 							.get(projectConst.getFileToKey() + i);
 					if(key!=null){
-						redisTemplate.delete(key);
+						stringRedisTemplate.delete(key);
 					}
 					Files.delete(file);
 					return super.visitFile(file, attrs);
@@ -303,14 +300,14 @@ public class FileServiceImpl implements FileService {
 		}
 		String key = NanoId.randomNanoId(8);
 		int i = file.hashCode();
-		redisTemplate.opsForValue().set(projectConst.getFileToKey()+i,key,num, TimeUnit.HOURS);
-		redisTemplate.opsForValue().set(projectConst.getKeyToFile()+key,path,num,TimeUnit.HOURS);
+		stringRedisTemplate.opsForValue().set(projectConst.getFileToKey()+i,key,num, TimeUnit.HOURS);
+		stringRedisTemplate.opsForValue().set(projectConst.getKeyToFile()+key,path,num,TimeUnit.HOURS);
 		return Result.ok(key);
 	}
 
 	@Override
 	public Result<String> receiveFile(HttpServletResponse response, String code) {
-		String res = redisTemplate.opsForValue()
+		String res = stringRedisTemplate.opsForValue()
 				.get(projectConst.getKeyToFile() + code);
 		if(res==null){
 			return Result.fail(ResponseCode.NOT_FOUND,"文件已删除或分享超时");
