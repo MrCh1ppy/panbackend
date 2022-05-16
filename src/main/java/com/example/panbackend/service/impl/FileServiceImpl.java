@@ -179,6 +179,16 @@ public class FileServiceImpl implements FileService {
 		return queryRes.map(Result::ok).orElseGet(() -> Result.fail(ResponseCode.INVALID_PARAMETER, "非文件夹目录或其他错误"));
 	}
 
+	/**
+	 * get file tree
+	 *获得文件树
+	 * @param paramPath paramPath
+	 * @param userID userID
+	 * @param divide divide
+	 * @return {@link Result}
+	 * @see Result
+	 * @see FileTreeDTO
+	 */
 	@Override
 	public Result<FileTreeDTO> getFileTree(String paramPath, int userID,String divide) {
 		Path path = pathBuilder(paramPath, userID,divide);
@@ -237,6 +247,16 @@ public class FileServiceImpl implements FileService {
 	}
 
 
+	/**
+	 * file delete
+	 *递归删除文件
+	 * @param path 路径
+	 * @param userId 用户ID
+	 * @param divide 分隔符
+	 * @return {@link Result}
+	 * @see Result
+	 * @see String
+	 */
 	@Override
 	public Result<String> fileDelete(String path,int userId,String divide) {
 		Path rootPath = pathBuilder(path,userId,divide);
@@ -292,6 +312,17 @@ public class FileServiceImpl implements FileService {
 		}
 	}
 
+	/**
+	 * share file
+	 *
+	 * @param path 路径
+	 * @param id userID
+	 * @param divide 分隔符
+	 * @param num 保留时间
+	 * @return {@link Result}
+	 * @see Result
+	 * @see String
+	 */
 	@Override
 	public Result<String> shareFile(String path, int id,String divide,int num) {
 		File file = pathBuilder(path, id, divide).toFile();
@@ -305,6 +336,15 @@ public class FileServiceImpl implements FileService {
 		return Result.ok(key);
 	}
 
+	/**
+	 * receive file
+	 *通过code接收文件
+	 * @param response response
+	 * @param code code
+	 * @return {@link Result}
+	 * @see Result
+	 * @see String
+	 */
 	@Override
 	public Result<String> receiveFile(HttpServletResponse response, String code) {
 		String res = stringRedisTemplate.opsForValue()
@@ -315,6 +355,15 @@ public class FileServiceImpl implements FileService {
 		return doDownLoad(response, Paths.get(code));
 	}
 
+	/**
+	 * path builder
+	 *通过路径获得Path辅助类
+	 * @param path path
+	 * @param userID userID
+	 * @param divide divide
+	 * @return {@link Path}
+	 * @see Path
+	 */
 	private Path pathBuilder(String path,int userID,String divide){
 		Optional<User> user = userDao.findById(userID);
 		if(!user.isPresent()){
