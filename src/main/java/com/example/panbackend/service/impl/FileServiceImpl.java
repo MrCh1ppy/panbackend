@@ -329,11 +329,18 @@ public class FileServiceImpl implements FileService {
 		if(!file.exists()){
 			return Result.fail(ResponseCode.LOGIC_ERROR,"文件已不存在");
 		}
-		String key = NanoId.randomNanoId(8);
-		int i = file.hashCode();
-		stringRedisTemplate.opsForValue().set(projectConst.getFileToKey()+i,key,num, TimeUnit.HOURS);
-		stringRedisTemplate.opsForValue().set(projectConst.getKeyToFile()+key,path,num,TimeUnit.HOURS);
-		return Result.ok(key);
+		String fileToKeyKey = projectConst.getFileToKey() + file.hashCode();
+		String res = stringRedisTemplate.opsForValue().get(fileToKeyKey);
+		if(res==null){
+			String key = NanoId.randomNanoId(8);
+			int i = file.hashCode();
+			stringRedisTemplate.opsForValue().set(projectConst.getFileToKey()+i,key,num, TimeUnit.HOURS);
+			stringRedisTemplate.opsForValue().set(projectConst.getKeyToFile()+key,file.getAbsolutePath(),num,TimeUnit.HOURS);
+			return Result.ok(key);
+		}
+		stringRedisTemplate.expire(fileToKeyKey,num,TimeUnit.HOURS);
+		stringRedisTemplate.expire(res,num,TimeUnit.HOURS);
+		return Result.ok(res);
 	}
 
 	/**
@@ -349,10 +356,12 @@ public class FileServiceImpl implements FileService {
 	public Result<String> receiveFile(HttpServletResponse response, String code) {
 		String res = stringRedisTemplate.opsForValue()
 				.get(projectConst.getKeyToFile() + code);
+
+		log.info("接收文件的路径为{}",res);
 		if(res==null){
 			return Result.fail(ResponseCode.NOT_FOUND,"文件已删除或分享超时");
 		}
-		return doDownLoad(response, Paths.get(code));
+		return doDownLoad(response, Paths.get(res));
 	}
 
 	/**

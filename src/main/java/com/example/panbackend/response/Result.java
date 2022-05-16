@@ -1,16 +1,13 @@
 package com.example.panbackend.response;
 
-import lombok.Data;
-
 /**
  *  result
  *
  */
-@Data
 public final class Result<T> {
-	T value;
-	String msg;
-	int code;
+	final T value;
+	final String msg;
+	final int code;
 
 	public Result(T value, String msg, int code) {
 		this.value = value;
@@ -88,7 +85,17 @@ public final class Result<T> {
 	}
 
 
+	public T getValue() {
+		return value;
+	}
 
+	public String getMsg() {
+		return msg;
+	}
+
+	public int getCode() {
+		return code;
+	}
 }
 
 

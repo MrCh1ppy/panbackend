@@ -57,10 +57,7 @@ public class FileController {
 	                                @RequestParam("divide")String divide){
 		int id = StpUtil.getLoginIdAsInt();
 		Result<String> result = fileService.fileDownLoad(response,path,id,divide);
-		if(result.getCode()==200){
-			return null;
-		}
-		return result;
+		return result.getCode()==200?null:result;
 	}
 
 	@SaCheckLogin
@@ -95,6 +92,7 @@ public class FileController {
 			HttpServletResponse response,
 			@RequestParam("code") String code
 	){
-		return fileService.receiveFile(response, code);
+		Result<String> result = fileService.receiveFile(response, code);
+		return result.getCode()==200?null:result;
 	}
 }
