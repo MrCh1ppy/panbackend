@@ -79,10 +79,12 @@ public class FileServiceImpl implements FileService {
 			return Result.fail(ResponseCode.DEFAULT_ERROR,"文件夹创建失败");
 		}
 		try{
+			log.info("try upload {}",dest.getAbsolutePath());
 			file.transferTo(dest);
 		}catch (IOException e){
 			log.warn("文件传输错误");
-			Result.fail(ResponseCode.DEFAULT_ERROR,"程序错误，请重上传");
+			e.printStackTrace();
+			return Result.fail(ResponseCode.DEFAULT_ERROR,"程序错误，请重上传");
 		}
 		return Result.ok("成功传输，路径为"+ path);
 	}
@@ -121,7 +123,7 @@ public class FileServiceImpl implements FileService {
 				return false;
 			}
 		}
-		return fileSize<size;
+		return fileSize>size;
 	}
 
 	private Result<String>doDownLoad(HttpServletResponse response,Path path){
