@@ -384,7 +384,6 @@ public class FileServiceImpl implements FileService {
 	 */
 	@Override
 	public Result<String> receiveFile(HttpServletResponse response, String code) {
-		int a=1;
 		String numText = (String) stringRedisTemplate.opsForHash().get(projectConst.getKeyToFile() + code, projectConst.getFileReceiveTime());
 		if(numText==null||numText.isBlank()){
 			return Result.fail(ResponseCode.NOT_FOUND,"文件已删除或分享超时");
@@ -435,7 +434,7 @@ public class FileServiceImpl implements FileService {
 	public Result<String> shareAirDrop(MultipartFile multipartFile,int numOfShare){
 		Path path = projectConst.getPrePath().resolve(Integer.toString(projectConst.getAirDropUserID())).resolve(multipartFile.getName());
 		long size = multipartFile.getSize();
-		if(size<projectConst.getAirDropSizeLimit()){
+		if(size>projectConst.getAirDropSizeLimit()){
 			return Result.fail(ResponseCode.INVALID_PARAMETER,"文件太大了♂,最大50MB");
 		}
 		Result<String> result = doUpload(multipartFile, path);
