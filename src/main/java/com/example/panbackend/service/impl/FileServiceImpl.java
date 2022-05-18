@@ -16,6 +16,7 @@ import com.example.panbackend.utils.ProjectConst;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -27,10 +28,12 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
@@ -136,12 +139,7 @@ public class FileServiceImpl implements FileService {
 		response.setContentType("application/octet-stream");
 		response.setCharacterEncoding("utf-8");
 		response.setContentLength((int) file.length());
-		try {
-			response.setHeader("Content-Disposition", "attachment;filename=" + URLEncoder.encode(file.getName(), "utf-8"));
-		} catch (UnsupportedEncodingException e) {
-			log.error("文件名格式化错误:" + path);
-			return Result.fail(ResponseCode.INVALID_PARAMETER,"文件名格式化错误");
-		}
+		response.setHeader("Content-Disposition", "attachment;filename=" + URLEncoder.encode(file.getName(), StandardCharsets.UTF_8));
 		ServletOutputStream ops = null;
 		try(
 				BufferedInputStream stream = new BufferedInputStream(Files.newInputStream(file.toPath()))
@@ -264,7 +262,7 @@ public class FileServiceImpl implements FileService {
 		Path rootPath = pathBuilder(path,userId,divide);
 		log.info("delete{}",rootPath);
 		try {
-			Files.walkFileTree(rootPath,new SimpleFileVisitor<Path>(){
+			Files.walkFileTree(rootPath, new SimpleFileVisitor<>() {
 
 				/**
 				 * Invoked for a file in a directory.
@@ -272,7 +270,7 @@ public class FileServiceImpl implements FileService {
 				 * <p> Unless overridden, this method returns {@link FileVisitResult#CONTINUE
 				 * CONTINUE}.
 				 *
-				 * @param file 查看的对象
+				 * @param file  查看的对象
 				 * @param attrs 无用
 				 */
 				@Override
@@ -282,9 +280,10 @@ public class FileServiceImpl implements FileService {
 					String key = stringRedisTemplate
 							.opsForValue()
 							.get(projectConst.getFileToKey() + i);
-					if(key!=null){
+					if (key != null) {
 						stringRedisTemplate.delete(key);
 					}
+					stringRedisTemplate.delete(projectConst.getFileToKey() + i);
 					Files.delete(file);
 					return super.visitFile(file, attrs);
 				}
@@ -314,35 +313,62 @@ public class FileServiceImpl implements FileService {
 		}
 	}
 
+
 	/**
 	 * share file
 	 *
-	 * @param path 路径
-	 * @param id userID
-	 * @param divide 分隔符
-	 * @param num 保留时间
+	 * @param stringPath stringPath
+	 * @param id id
+	 * @param divide divide
+	 * @param num num
 	 * @return {@link Result}
 	 * @see Result
 	 * @see String
 	 */
 	@Override
-	public Result<String> shareFile(String path, int id,String divide,int num) {
-		File file = pathBuilder(path, id, divide).toFile();
+	public Result<String> shareFile(String stringPath, int id,String divide,int num) {
+		Path path = pathBuilder(stringPath, id, divide);
+		File file = path.toFile();
 		if(!file.exists()){
-			return Result.fail(ResponseCode.LOGIC_ERROR,"文件已不存在");
+			return Result.fail(ResponseCode.LOGIC_ERROR, "文件不存在或已被删除");
 		}
+		return Result.ok(doFileShare(file,Duration.of(num, ChronoUnit.MINUTES),Integer.MAX_VALUE));
+	}
+
+
+	/**
+	 * do file share
+	 *分享文件
+	 * @param file file
+	 * @param duration key保留时间
+	 * @param receiveTime 文件可以接收的次数
+	 * @return {@link String}
+	 * @see String
+	 */
+	private String doFileShare(File file,Duration duration,int receiveTime){
 		String fileToKeyKey = projectConst.getFileToKey() + file.hashCode();
-		String res = stringRedisTemplate.opsForValue().get(fileToKeyKey);
-		if(res==null){
+		//获取hash的key
+		String hashMapKey = stringRedisTemplate.opsForValue().get(fileToKeyKey);
+		if(hashMapKey==null){
+			//生成key
 			String key = NanoId.randomNanoId(8);
-			int i = file.hashCode();
-			stringRedisTemplate.opsForValue().set(projectConst.getFileToKey()+i,key,num, TimeUnit.HOURS);
-			stringRedisTemplate.opsForValue().set(projectConst.getKeyToFile()+key,file.getAbsolutePath(),num,TimeUnit.HOURS);
-			return Result.ok(key);
+			stringRedisTemplate.opsForValue().set(projectConst.getFileToKey()+file.hashCode(),key,duration);
+			//构建文件信息
+			HashMap<String, String> fileInfo = new HashMap<>();
+			fileInfo.put(projectConst.getFilePath(),file.getAbsolutePath());
+			fileInfo.put(projectConst.getFileReceiveTime(), Integer.toString(receiveTime));
+			//提交
+			stringRedisTemplate.opsForHash().putAll(projectConst.getKeyToFile()+key,fileInfo);
+			stringRedisTemplate.expire(projectConst.getFileToKey(), duration);
+			//返回取件码
+			return key;
 		}
-		stringRedisTemplate.expire(fileToKeyKey,num,TimeUnit.HOURS);
-		stringRedisTemplate.expire(res,num,TimeUnit.HOURS);
-		return Result.ok(res);
+		//为文件到哈希的key进行续命
+		stringRedisTemplate.expire(fileToKeyKey,duration);
+		stringRedisTemplate.expire(hashMapKey,duration);
+		//保证重设可分享的次数
+		stringRedisTemplate.opsForHash().put(projectConst.getKeyToFile()+hashMapKey,projectConst.getFileReceiveTime(),receiveTime);
+		return hashMapKey;
 	}
 
 	/**
@@ -356,14 +382,29 @@ public class FileServiceImpl implements FileService {
 	 */
 	@Override
 	public Result<String> receiveFile(HttpServletResponse response, String code) {
-		String res = stringRedisTemplate.opsForValue()
-				.get(projectConst.getKeyToFile() + code);
-
-		log.info("接收文件的路径为{}",res);
-		if(res==null){
+		String numText = (String) stringRedisTemplate.opsForHash().get(projectConst.getKeyToFile() + code, projectConst.getFileReceiveTime());
+		if(numText==null||numText.isBlank()){
 			return Result.fail(ResponseCode.NOT_FOUND,"文件已删除或分享超时");
 		}
-		return doDownLoad(response, Paths.get(res));
+		int receiveTime = Integer.parseInt(numText);
+		//寻找对应路径
+		String path = (String) stringRedisTemplate.opsForHash().get(projectConst.getFileToKey() + code, projectConst.getFilePath());
+		log.info("接收文件的路径为{}",path);
+		if(path==null){
+			log.error("redis 分享文件一致性出错");
+			stringRedisTemplate.delete(projectConst.getKeyToFile()+code);
+			return Result.fail(ResponseCode.DEFAULT_ERROR,"服务器内部错误");
+		}
+		//防止高并发访问下击穿
+		Path filePath = Path.of(path);
+		if(receiveTime<=0){
+			stringRedisTemplate.delete(projectConst.getFileToKey()+ filePath.toFile().hashCode());
+			stringRedisTemplate.delete(projectConst.getKeyToFile()+code);
+			return Result.fail(ResponseCode.LOGIC_ERROR, "文件分享次数已达上限");
+		}
+		receiveTime-=1;
+		stringRedisTemplate.opsForHash().put(projectConst.getKeyToFile()+code,projectConst.getFileReceiveTime(),receiveTime);
+		return doDownLoad(response, filePath);
 	}
 
 	/**
@@ -377,7 +418,7 @@ public class FileServiceImpl implements FileService {
 	 */
 	private Path pathBuilder(String path,int userID,String divide){
 		Optional<User> user = userDao.findById(userID);
-		if(!user.isPresent()){
+		if(user.isEmpty()){
 			throw new ProjectException("无对应用户",ResponseCode.LOGIC_ERROR);
 		}
 		String[] split = path.split(divide);
@@ -385,6 +426,42 @@ public class FileServiceImpl implements FileService {
 		return projectConst
 				.getPrePath()
 				.resolve(Integer.toString(userID)).resolve(Paths.get(split[0], param));
+	}
+
+	public Result<String> shareAirDrop(MultipartFile multipartFile){
+		Path path = projectConst.getPrePath().resolve(Integer.toString(projectConst.getAirDropUserID())).resolve(multipartFile.getName());
+		long size = multipartFile.getSize();
+		if(size<projectConst.getAirDropSizeLimit()){
+			return Result.fail(ResponseCode.INVALID_PARAMETER,"文件太大了♂");
+		}
+		Result<String> result = doUpload(multipartFile, path);
+		if (result.getCode()!=200){
+			return Result.fail(ResponseCode.DEFAULT_ERROR,"文件上传失败，无法空投");
+		}
+		File file = path.toFile();
+		String shareCode = doFileShare(file, Duration.of(projectConst.getAirDropTTL(), ChronoUnit.MINUTES),Integer.MAX_VALUE);
+		return Result.ok(shareCode);
+	}
+
+	public void receiveAirDrop(HttpServletResponse response,String code){
+
+	}
+
+	@Scheduled(fixedDelay = 60*1000)
+	private void freshAirDrop() throws IOException {
+		File file = projectConst.getPrePath().resolve(Integer.toString(projectConst.getAirDropUserID())).toFile();
+		if(!file.exists()){
+			Files.createDirectories(file.toPath());
+		}
+		File[] files=file.listFiles();
+		files=files==null?new File[0]:files;
+		for (File cur : files) {
+			int code = cur.hashCode();
+			String res = stringRedisTemplate.opsForValue().get(projectConst.getFileToKey() + code);
+			if(res==null){
+				Files.deleteIfExists(cur.toPath());
+			}
+		}
 	}
 
 

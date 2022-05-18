@@ -4,6 +4,7 @@ import com.example.panbackend.entity.dto.file.FileDTO;
 import com.example.panbackend.entity.dto.file.FileTreeDTO;
 import com.example.panbackend.entity.param.FileUploadParam;
 import com.example.panbackend.response.Result;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletResponse;
 import java.util.List;
@@ -22,5 +23,7 @@ public interface FileService {
 	Result<String> shareFile(String path, int id,String divide,int num);
 
 	Result<String> receiveFile(HttpServletResponse response, String code);
+
+	Result<String> shareAirDrop(MultipartFile file);
 }
 
