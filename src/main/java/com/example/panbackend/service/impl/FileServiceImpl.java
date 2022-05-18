@@ -367,9 +367,9 @@ public class FileServiceImpl implements FileService {
 		}
 		//为文件到哈希的key进行续命
 		stringRedisTemplate.expire(fileToKeyKey,duration);
-		stringRedisTemplate.expire(hashMapKey,duration);
+		stringRedisTemplate.expire(projectConst.getKeyToFile()+hashMapKey,duration);
 		//保证重设可分享的次数
-		stringRedisTemplate.opsForHash().put(projectConst.getKeyToFile()+hashMapKey,projectConst.getFileReceiveTime(),receiveTime);
+		stringRedisTemplate.opsForHash().put(projectConst.getKeyToFile()+hashMapKey,projectConst.getFileReceiveTime(),Integer.toString(receiveTime));
 		return hashMapKey;
 	}
 
@@ -384,13 +384,14 @@ public class FileServiceImpl implements FileService {
 	 */
 	@Override
 	public Result<String> receiveFile(HttpServletResponse response, String code) {
+		int a=1;
 		String numText = (String) stringRedisTemplate.opsForHash().get(projectConst.getKeyToFile() + code, projectConst.getFileReceiveTime());
 		if(numText==null||numText.isBlank()){
 			return Result.fail(ResponseCode.NOT_FOUND,"文件已删除或分享超时");
 		}
 		int receiveTime = Integer.parseInt(numText);
 		//寻找对应路径
-		String path = (String) stringRedisTemplate.opsForHash().get(projectConst.getFileToKey() + code, projectConst.getFilePath());
+		String path = (String) stringRedisTemplate.opsForHash().get(projectConst.getKeyToFile() + code, projectConst.getFilePath());
 		log.info("接收文件的路径为{}",path);
 		if(path==null){
 			log.error("redis 分享文件一致性出错");
@@ -405,7 +406,7 @@ public class FileServiceImpl implements FileService {
 			return Result.fail(ResponseCode.LOGIC_ERROR, "文件分享次数已达上限");
 		}
 		receiveTime-=1;
-		stringRedisTemplate.opsForHash().put(projectConst.getKeyToFile()+code,projectConst.getFileReceiveTime(),receiveTime);
+		stringRedisTemplate.opsForHash().put(projectConst.getKeyToFile()+code,projectConst.getFileReceiveTime(),Integer.toString(receiveTime));
 		return doDownLoad(response, filePath);
 	}
 
@@ -446,7 +447,7 @@ public class FileServiceImpl implements FileService {
 		return Result.ok(shareCode);
 	}
 
-	@Scheduled(fixedDelay = 60*1000)
+	@Scheduled(fixedDelay = 120*1000)
 	private void freshAirDrop() throws IOException {
 		File file = projectConst.getPrePath().resolve(Integer.toString(projectConst.getAirDropUserID())).toFile();
 		if(!file.exists()){
