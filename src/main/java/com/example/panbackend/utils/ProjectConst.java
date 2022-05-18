@@ -1,6 +1,5 @@
 package com.example.panbackend.utils;
 
-import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
@@ -10,7 +9,6 @@ import org.springframework.util.unit.DataSize;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.concurrent.TimeUnit;
 
 @Component
@@ -45,7 +43,7 @@ public class ProjectConst implements InitializingBean {
 	@Override
 	public void afterPropertiesSet() throws Exception {
 		String rootPath = System.getProperty("user.dir");
-		Path root = Paths.get(rootPath).resolve("pan");
+		Path root = Path.of(rootPath).resolve("pan");
 		Files.createDirectories(root);
 		prePath= root;
 		log.info("基础存放地址{}已装载", prePath);

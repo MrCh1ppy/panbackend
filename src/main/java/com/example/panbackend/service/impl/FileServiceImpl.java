@@ -26,10 +26,12 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
@@ -152,7 +154,7 @@ public class FileServiceImpl implements FileService {
 				ops.flush();
 			}
 		}catch (IOException e){
-			log.error("{} check",e);
+			log.error("{} check",e.toString());
 			return Result.fail(ResponseCode.DEFAULT_ERROR,"下载时出现异常");
 		}finally {
 			try {
@@ -320,19 +322,19 @@ public class FileServiceImpl implements FileService {
 	 * @param stringPath stringPath
 	 * @param id id
 	 * @param divide divide
-	 * @param num num
+	 * @param leftMin num
 	 * @return {@link Result}
 	 * @see Result
 	 * @see String
 	 */
 	@Override
-	public Result<String> shareFile(String stringPath, int id,String divide,int num) {
+	public Result<String> shareFile(String stringPath, int id,String divide,int leftMin,int numOfShare) {
 		Path path = pathBuilder(stringPath, id, divide);
 		File file = path.toFile();
 		if(!file.exists()){
 			return Result.fail(ResponseCode.LOGIC_ERROR, "文件不存在或已被删除");
 		}
-		return Result.ok(doFileShare(file,Duration.of(num, ChronoUnit.MINUTES),Integer.MAX_VALUE));
+		return Result.ok(doFileShare(file,Duration.of(leftMin, ChronoUnit.MINUTES),Integer.MAX_VALUE));
 	}
 
 
@@ -395,8 +397,8 @@ public class FileServiceImpl implements FileService {
 			stringRedisTemplate.delete(projectConst.getKeyToFile()+code);
 			return Result.fail(ResponseCode.DEFAULT_ERROR,"服务器内部错误");
 		}
-		//防止高并发访问下击穿
 		Path filePath = Path.of(path);
+		//防止高并发访问下击穿
 		if(receiveTime<=0){
 			stringRedisTemplate.delete(projectConst.getFileToKey()+ filePath.toFile().hashCode());
 			stringRedisTemplate.delete(projectConst.getKeyToFile()+code);
@@ -425,26 +427,23 @@ public class FileServiceImpl implements FileService {
 		String[] param = ArrayUtil.sub(split, 1, split.length);
 		return projectConst
 				.getPrePath()
-				.resolve(Integer.toString(userID)).resolve(Paths.get(split[0], param));
+				.resolve(Integer.toString(userID)).resolve(Path.of(split[0], param));
 	}
 
-	public Result<String> shareAirDrop(MultipartFile multipartFile){
+	@Override
+	public Result<String> shareAirDrop(MultipartFile multipartFile,int numOfShare){
 		Path path = projectConst.getPrePath().resolve(Integer.toString(projectConst.getAirDropUserID())).resolve(multipartFile.getName());
 		long size = multipartFile.getSize();
 		if(size<projectConst.getAirDropSizeLimit()){
-			return Result.fail(ResponseCode.INVALID_PARAMETER,"文件太大了♂");
+			return Result.fail(ResponseCode.INVALID_PARAMETER,"文件太大了♂,最大50MB");
 		}
 		Result<String> result = doUpload(multipartFile, path);
 		if (result.getCode()!=200){
 			return Result.fail(ResponseCode.DEFAULT_ERROR,"文件上传失败，无法空投");
 		}
 		File file = path.toFile();
-		String shareCode = doFileShare(file, Duration.of(projectConst.getAirDropTTL(), ChronoUnit.MINUTES),Integer.MAX_VALUE);
+		String shareCode = doFileShare(file, Duration.of(projectConst.getAirDropTTL(), ChronoUnit.MINUTES),numOfShare);
 		return Result.ok(shareCode);
-	}
-
-	public void receiveAirDrop(HttpServletResponse response,String code){
-
 	}
 
 	@Scheduled(fixedDelay = 60*1000)

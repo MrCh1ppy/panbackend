@@ -20,10 +20,10 @@ public interface FileService {
 
 	Result<String> fileDelete(String path,int userId,String divide);
 
-	Result<String> shareFile(String path, int id,String divide,int num);
+	Result<String> shareFile(String path, int id,String divide,int num,int numOfShare);
 
 	Result<String> receiveFile(HttpServletResponse response, String code);
 
-	Result<String> shareAirDrop(MultipartFile file);
+	Result<String> shareAirDrop(MultipartFile file,int numOfShare);
 }
 

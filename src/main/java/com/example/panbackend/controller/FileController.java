@@ -80,10 +80,19 @@ public class FileController {
 	@SaCheckLogin
 	public Result<String> shareFile(@RequestParam("path")String path,
 	                                @RequestParam("share_time")String num,
-	                                @RequestParam("divide")String divide
+	                                @RequestParam("divide")String divide,
+                                    @RequestParam("num_of_share")String numOfShare
 	){
 		int id = StpUtil.getLoginIdAsInt();
-		return fileService.shareFile(path, id, divide, Integer.parseInt(num));
+		int shareNum = Integer.parseInt(numOfShare);
+		return fileService.shareFile(path, id, divide, Integer.parseInt(num),shareNum);
+	}
+
+	@PostMapping("/air/share")
+	public Result<String> airDropShare(@RequestParam("file")MultipartFile file,
+	                                   @RequestParam("num_of_share")String numOfShare){
+		int shareNum = Integer.parseInt(numOfShare);
+		return fileService.shareAirDrop(file, shareNum);
 	}
 
 	@ResponseBody
