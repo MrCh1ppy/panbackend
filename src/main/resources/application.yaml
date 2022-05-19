@@ -1,5 +1,5 @@
 server:
-  port: 9004
+  port: 9005
 spring:
   redis:
     host: 47.98.206.89
