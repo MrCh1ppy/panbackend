@@ -7,7 +7,7 @@ import com.example.panbackend.dao.jpa.UserDao;
 import com.example.panbackend.entity.dto.token.TokenInfoDTO;
 import com.example.panbackend.entity.param.UserLoginParam;
 import com.example.panbackend.entity.param.UserRegisterParam;
-import com.example.panbackend.entity.po.User;
+import com.example.panbackend.entity.po.UserPo;
 import com.example.panbackend.response.ResponseCode;
 import com.example.panbackend.response.Result;
 import com.example.panbackend.service.UserService;
@@ -43,16 +43,16 @@ public class UserServiceImpl implements UserService {
 	@Override
 	public Result<String> register(UserRegisterParam param) {
 		String username = param.getUsername();
-		Optional<User> byUsername = userDao.findUserByUsername(username);
+		Optional<UserPo> byUsername = userDao.findUserByUsername(username);
 		if(byUsername.isPresent()){
 			return Result.fail(ResponseCode.LOGIC_ERROR,"用户名已存在");
 		}
-		User user = new User(
+		UserPo user = new UserPo(
 				-1,
 				param.getUsername(),
 				SecureUtil.md5(param.getPassword())
 		);
-		User temp = userDao.save(user);
+		UserPo temp = userDao.save(user);
 		if(temp.getId()!=-1){
 			return Result.ok("ok");
 		}
@@ -69,11 +69,11 @@ public class UserServiceImpl implements UserService {
 	 */
 	@Override
 	public Result<TokenInfoDTO> login(UserLoginParam param) {
-		Optional<User> user = userDao.findUserByUsername(param.getUsername());
-		if(!user.isPresent()){
+		Optional<UserPo> user = userDao.findUserByUsername(param.getUsername());
+		if(user.isEmpty()){
 			return Result.fail(ResponseCode.LOGIC_ERROR,"无对应用户名");
 		}
-		User temp = user.get();
+		UserPo temp = user.get();
 		String dealPassword = SecureUtil.md5(param.getPassword());
 		if(!Objects.equals(dealPassword, temp.getPassword())){
 			return Result.fail(ResponseCode.LOGIC_ERROR,"密码错误");

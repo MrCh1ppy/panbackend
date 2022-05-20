@@ -9,6 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import javax.annotation.Resource;
+import java.util.HashMap;
 
 @SpringBootTest
 class PanbackendApplicationTests {
@@ -20,6 +21,7 @@ class PanbackendApplicationTests {
 
 	@Test
 	void contextLoads() {
+
 	}
 
 }
