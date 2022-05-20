@@ -1,12 +1,15 @@
 package com.example.panbackend.service.impl;
 
+import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.lang.id.NanoId;
 import cn.hutool.core.util.ArrayUtil;
+import com.example.panbackend.dao.jpa.HistoryDao;
 import com.example.panbackend.dao.jpa.UserDao;
 import com.example.panbackend.entity.dto.file.FileDTO;
 import com.example.panbackend.entity.dto.file.FileTreeDTO;
 import com.example.panbackend.entity.param.FileUploadParam;
-import com.example.panbackend.entity.po.User;
+import com.example.panbackend.entity.po.HistoryPo;
+import com.example.panbackend.entity.po.UserPo;
 import com.example.panbackend.exception.ProjectException;
 import com.example.panbackend.response.ResponseCode;
 import com.example.panbackend.response.Result;
@@ -41,38 +44,24 @@ import java.util.*;
 @Slf4j
 public class FileServiceImpl implements FileService {
 
-	UserDao userDao;
+	private final UserDao userDao;
 
-	ProjectConst projectConst;
-	PanFileUtils panFileUtils;
+	private final ProjectConst projectConst;
+	private final PanFileUtils panFileUtils;
 
-	StringRedisTemplate stringRedisTemplate;
+	private final StringRedisTemplate stringRedisTemplate;
 
-	@Resource
-	public FileServiceImpl setStringRedisTemplate(StringRedisTemplate stringRedisTemplate) {
-		this.stringRedisTemplate = stringRedisTemplate;
-		return this;
-	}
+	private final HistoryDao historyDao;
 
-	@Autowired
-	public FileServiceImpl setUserDao(UserDao userDao) {
+	public FileServiceImpl(UserDao userDao, ProjectConst projectConst, PanFileUtils panFileUtils, StringRedisTemplate stringRedisTemplate, HistoryDao historyDao) {
 		this.userDao = userDao;
-		return this;
-	}
-
-	@Autowired
-	public FileServiceImpl setProjectConst(ProjectConst projectConst) {
 		this.projectConst = projectConst;
-		return this;
-	}
-
-	@Autowired
-	public FileServiceImpl setPanFileUtils(PanFileUtils panFileUtils) {
 		this.panFileUtils = panFileUtils;
-		return this;
+		this.stringRedisTemplate = stringRedisTemplate;
+		this.historyDao = historyDao;
 	}
 
-	private Result<String> doUpload(MultipartFile file,Path path){
+	private Result<String> doUpload(MultipartFile file, Path path){
 		String fileName = file.getOriginalFilename();
 		log.info("传输文件到：{}",path);
 		if(fileName==null){
@@ -100,7 +89,18 @@ public class FileServiceImpl implements FileService {
 			return Result.fail(ResponseCode.LOGIC_ERROR,"文件超过大小");
 		}
 		Path path = pathBuilder(param.getPath(), param.getUserID(),divide);
-		return doUpload(param.getFile(), path);
+		Result<String> upload = doUpload(param.getFile(), path);
+		if(upload.getCode()==200){
+			File file = path.toFile();
+			HistoryPo po = HistoryPo.getInstance(
+					FileUtil.getType(file),
+					file.getName(),
+					panFileUtils.getDataSize(FileUtil.size(file)),
+					HistoryPo.HistoryType.UPLOAD
+			);
+			historyDao.save(po);
+		}
+		return upload;
 	}
 
 	private static boolean checkSize(MultipartFile file,int size,String unit){
@@ -171,7 +171,18 @@ public class FileServiceImpl implements FileService {
 	@Override
 	public Result<String> fileDownLoad(HttpServletResponse response,String path,int userId,String divide)  {
 		Path tempPath = pathBuilder(path, userId,divide);
-		return doDownLoad(response, tempPath);
+		Result<String> downLoad = doDownLoad(response, tempPath);
+		if (downLoad==null) {
+			File file = tempPath.toFile();
+			HistoryPo po = HistoryPo.getInstance(
+					FileUtil.getType(file),
+					file.getName(),
+					panFileUtils.getDataSize(FileUtil.size(file)),
+					HistoryPo.HistoryType.DOWNLOAD
+			);
+			historyDao.save(po);
+		}
+		return downLoad;
 	}
 
 	@Override
@@ -334,7 +345,15 @@ public class FileServiceImpl implements FileService {
 		if(!file.exists()){
 			return Result.fail(ResponseCode.LOGIC_ERROR, "文件不存在或已被删除");
 		}
-		return Result.ok(doFileShare(file,Duration.of(leftMin, ChronoUnit.MINUTES),Integer.MAX_VALUE));
+		String share = doFileShare(file, Duration.of(leftMin, ChronoUnit.MINUTES), Integer.MAX_VALUE);
+		HistoryPo po = HistoryPo.getInstance(
+				FileUtil.getType(file),
+				file.getName(),
+				panFileUtils.getDataSize(FileUtil.size(file)),
+				HistoryPo.HistoryType.DOWNLOAD
+		);
+		historyDao.save(po);
+		return Result.ok(share);
 	}
 
 
@@ -419,7 +438,7 @@ public class FileServiceImpl implements FileService {
 	 * @see Path
 	 */
 	private Path pathBuilder(String path,int userID,String divide){
-		Optional<User> user = userDao.findById(userID);
+		Optional<UserPo> user = userDao.findById(userID);
 		if(user.isEmpty()){
 			throw new ProjectException("无对应用户",ResponseCode.LOGIC_ERROR);
 		}

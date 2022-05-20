@@ -11,7 +11,7 @@ import javax.persistence.Id;
 @Entity
 @Getter
 @Setter
-public class User {
+public class UserPo {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.AUTO)
@@ -19,12 +19,12 @@ public class User {
 	private String username;
 	private String password;
 
-	public User(int id, String username, String password) {
+	public UserPo(int id, String username, String password) {
 		this.id = id;
 		this.username = username;
 		this.password = password;
 	}
 
-	public User() {
+	public UserPo() {
 	}
 }
