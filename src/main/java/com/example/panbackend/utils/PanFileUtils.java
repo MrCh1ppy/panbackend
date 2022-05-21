@@ -3,42 +3,34 @@ package com.example.panbackend.utils;
 import cn.hutool.core.io.FileUtil;
 import com.example.panbackend.entity.dto.file.FileDTO;
 import com.example.panbackend.entity.dto.file.FileSizeDTO;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 import java.io.File;
 
-@Component
+import static com.example.panbackend.utils.Const.PRE_PATH;
 public final class PanFileUtils {
-
-	private ProjectConst projectConst;
 	private static final String[] sizeUnit={"Byte","KB","MB","GB","TB"};
-	private static int prePathSize=-1;
-	@Autowired
-	public PanFileUtils(ProjectConst projectConst) {
-		this.projectConst = projectConst;
+	private static final int PRE_PATH_SIZE;
+
+	private PanFileUtils() {
 	}
 
-	@Autowired
-	public PanFileUtils setProjectConst(ProjectConst projectConst) {
-		this.projectConst = projectConst;
-		return this;
+	static {
+		PRE_PATH_SIZE =PRE_PATH.toString().length();
 	}
 
-
-	public FileDTO getFileDTO(File file) {
+	public static FileDTO getFileDTO(File file) {
 		double size = FileUtil.size(file);
 		FileSizeDTO sizeDTO = getDataSize(size);
 		return new FileDTO(
 				FileUtil.getName(file),
-				file.toPath().toString().substring(getPrePathSize()),
+				file.toPath().toString().substring(PRE_PATH_SIZE),
 				sizeDTO.getSize(),
 				sizeDTO.getSizeUnit(),
 				file.isDirectory() ? "directory" : FileUtil.getType(file)
 		);
 	}
 
-	public FileSizeDTO getDataSize(double bytesSize){
+	public static FileSizeDTO getDataSize(double bytesSize){
 		double showSize = bytesSize;
 		String showSizeUnit;
 		short index = 0;
@@ -54,13 +46,5 @@ public final class PanFileUtils {
 				showSize,
 				showSizeUnit
 		);
-	}
-
-	public int getPrePathSize() {
-		if(prePathSize!=-1){
-			return prePathSize;
-		}
-		PanFileUtils.prePathSize=projectConst.getPrePath().toString().length();
-		return prePathSize;
 	}
 }
