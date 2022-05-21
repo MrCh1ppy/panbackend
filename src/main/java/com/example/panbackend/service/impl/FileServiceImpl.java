@@ -1,8 +1,8 @@
 package com.example.panbackend.service.impl;
 
+import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.lang.id.NanoId;
-import cn.hutool.core.util.ArrayUtil;
 import com.example.panbackend.dao.jpa.HistoryDao;
 import com.example.panbackend.dao.jpa.UserDao;
 import com.example.panbackend.entity.dto.file.FileDTO;
@@ -17,6 +17,7 @@ import com.example.panbackend.service.FileService;
 import com.example.panbackend.utils.Const;
 import com.example.panbackend.utils.PanFileUtils;
 import lombok.extern.slf4j.Slf4j;
+import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -69,6 +70,9 @@ public class FileServiceImpl implements FileService {
 			return Result.fail(ResponseCode.LOGIC_ERROR,"非文件夹名或文件不存在");
 		}
 		File dest = path.resolve(fileName).toFile();
+		if(dest.exists()){
+			return Result.fail(ResponseCode.LOGIC_ERROR,"同名文件已存在");
+		}
 		try{
 			log.info("try upload {}",dest.getAbsolutePath());
 			file.transferTo(dest);
@@ -85,10 +89,19 @@ public class FileServiceImpl implements FileService {
 		if (checkSize(param.getFile(),param.getSizeLimit(),param.getSizeUnit())){
 			return Result.fail(ResponseCode.LOGIC_ERROR,"文件超过大小");
 		}
+		Path basePath = PRE_PATH.resolve(Integer.toString(param.getUserID()));
+		if(!basePath.toFile().exists()){
+			try {
+				Files.createDirectory(basePath);
+			} catch (IOException e) {
+				return Result.fail(ResponseCode.LOGIC_ERROR,"创建基础路径失败");
+			}
+		}
 		Path path = pathBuilder(param.getPath(), param.getUserID(),divide);
 		Result<String> upload = doUpload(param.getFile(), path);
 		if(upload.getCode()==200){
-			File file = path.toFile();
+			File file = path.resolve(Objects.requireNonNull(param.getFile().getOriginalFilename())).toFile();
+			getThumbnail(file);
 			HistoryPo po = HistoryPo.getInstance(
 					FileUtil.getType(file),
 					file.getName(),
@@ -98,6 +111,24 @@ public class FileServiceImpl implements FileService {
 			historyDao.save(po);
 		}
 		return upload;
+	}
+
+	private void getThumbnail(File file) {
+		if (!PanFileUtils.thumbnailAble(file)) {
+			return;
+		}
+		Path path = PanFileUtils.pathBuilder(THUMBNAIL_PRE_PATH, "", "", StpUtil.getLoginIdAsInt()).resolve(file.getName());
+		try {
+			Thumbnails.of(file)
+					.size(200,200)
+					.outputFormat("jpeg")
+					.toFile(path.toFile());
+		} catch (IOException e) {
+			e.printStackTrace();
+			throw new ProjectException("缩略图生成失败",ResponseCode.DEFAULT_ERROR);
+		}
+		log.info("缩略图生成一个{}", path);
+		stringRedisTemplate.opsForValue().set(REDIS_THUMBNAIL+file.toPath().hashCode(),path.toString());
 	}
 
 	private static boolean checkSize(MultipartFile file,int size,String unit){
@@ -289,11 +320,17 @@ public class FileServiceImpl implements FileService {
 					//防止文件删除了，分享码依旧存在
 					String key = stringRedisTemplate
 							.opsForValue()
-							.get( + i);
+							.getAndDelete(REDIS_FILE_TO_KEY + i);
 					if (key != null) {
 						stringRedisTemplate.delete(key);
 					}
-					stringRedisTemplate.delete(Const.FILE_TO_KEY + i);
+					//删除存留的缩略图
+					String path = stringRedisTemplate
+							.opsForValue()
+							.getAndDelete(REDIS_THUMBNAIL + file.hashCode());
+					if(path!=null){
+						Files.delete(Path.of(path));
+					}
 					Files.delete(file);
 					return super.visitFile(file, attrs);
 				}
@@ -364,28 +401,28 @@ public class FileServiceImpl implements FileService {
 	 * @see String
 	 */
 	private String doFileShare(File file,Duration duration,int receiveTime){
-		String fileToKeyKey = FILE_TO_KEY + file.hashCode();
+		String fileToKeyKey = REDIS_FILE_TO_KEY + file.toPath().hashCode();
 		//获取hash的key
 		String hashMapKey = stringRedisTemplate.opsForValue().get(fileToKeyKey);
 		if(hashMapKey==null){
 			//生成key
 			String key = NanoId.randomNanoId(8);
-			stringRedisTemplate.opsForValue().set(FILE_TO_KEY+file.hashCode(),key,duration);
+			stringRedisTemplate.opsForValue().set(REDIS_FILE_TO_KEY +file.toPath().hashCode(),key,duration);
 			//构建文件信息
 			HashMap<String, String> fileInfo = new HashMap<>();
-			fileInfo.put(FILE_PATH,file.getAbsolutePath());
-			fileInfo.put(FILE_TIME, Integer.toString(receiveTime));
+			fileInfo.put(REDIS_FILE_PATH,file.getAbsolutePath());
+			fileInfo.put(REDIS_FILE_TIME, Integer.toString(receiveTime));
 			//提交
-			stringRedisTemplate.opsForHash().putAll(KEY_TO_FILE+key,fileInfo);
-			stringRedisTemplate.expire(FILE_TO_KEY, duration);
+			stringRedisTemplate.opsForHash().putAll(REDIS_KEY_TO_FILE +key,fileInfo);
+			stringRedisTemplate.expire(REDIS_FILE_TO_KEY, duration);
 			//返回取件码
 			return key;
 		}
 		//为文件到哈希的key进行续命
 		stringRedisTemplate.expire(fileToKeyKey,duration);
-		stringRedisTemplate.expire(KEY_TO_FILE+hashMapKey,duration);
+		stringRedisTemplate.expire(REDIS_KEY_TO_FILE +hashMapKey,duration);
 		//保证重设可分享的次数
-		stringRedisTemplate.opsForHash().put(KEY_TO_FILE+hashMapKey,FILE_TIME,Integer.toString(receiveTime));
+		stringRedisTemplate.opsForHash().put(REDIS_KEY_TO_FILE +hashMapKey, REDIS_FILE_TIME,Integer.toString(receiveTime));
 		return hashMapKey;
 	}
 
@@ -400,28 +437,28 @@ public class FileServiceImpl implements FileService {
 	 */
 	@Override
 	public Result<String> receiveFile(HttpServletResponse response, String code) {
-		String numText = (String) stringRedisTemplate.opsForHash().get(KEY_TO_FILE + code, FILE_TIME);
+		String numText = (String) stringRedisTemplate.opsForHash().get(REDIS_KEY_TO_FILE + code, REDIS_FILE_TIME);
 		if(numText==null||numText.isBlank()){
 			return Result.fail(ResponseCode.NOT_FOUND,"文件已删除或分享超时");
 		}
 		int receiveTime = Integer.parseInt(numText);
 		//寻找对应路径
-		String path = (String) stringRedisTemplate.opsForHash().get(KEY_TO_FILE + code, FILE_PATH);
+		String path = (String) stringRedisTemplate.opsForHash().get(REDIS_KEY_TO_FILE + code, REDIS_FILE_PATH);
 		log.info("接收文件的路径为{}",path);
 		if(path==null){
 			log.error("redis 分享文件一致性出错");
-			stringRedisTemplate.delete(KEY_TO_FILE+code);
+			stringRedisTemplate.delete(REDIS_KEY_TO_FILE +code);
 			return Result.fail(ResponseCode.DEFAULT_ERROR,"服务器内部错误");
 		}
 		Path filePath = Path.of(path);
 		//防止高并发访问下击穿
 		if(receiveTime<=0){
-			stringRedisTemplate.delete(FILE_TO_KEY+ filePath.toFile().hashCode());
-			stringRedisTemplate.delete(KEY_TO_FILE+code);
+			stringRedisTemplate.delete(REDIS_FILE_TO_KEY + filePath.hashCode());
+			stringRedisTemplate.delete(REDIS_KEY_TO_FILE +code);
 			return Result.fail(ResponseCode.LOGIC_ERROR, "文件分享次数已达上限");
 		}
 		receiveTime-=1;
-		stringRedisTemplate.opsForHash().put(KEY_TO_FILE+code,FILE_TIME,Integer.toString(receiveTime));
+		stringRedisTemplate.opsForHash().put(REDIS_KEY_TO_FILE +code, REDIS_FILE_TIME,Integer.toString(receiveTime));
 		return doDownLoad(response, filePath);
 	}
 
@@ -439,9 +476,7 @@ public class FileServiceImpl implements FileService {
 		if(user.isEmpty()){
 			throw new ProjectException("无对应用户",ResponseCode.LOGIC_ERROR);
 		}
-		String[] split = path.split(divide);
-		String[] param = ArrayUtil.sub(split, 1, split.length);
-		return PRE_PATH.resolve(Integer.toString(userID)).resolve(Path.of(split[0], param));
+		return PanFileUtils.pathBuilder(PRE_PATH, path, divide, userID);
 	}
 
 	@Override
@@ -568,8 +603,8 @@ public class FileServiceImpl implements FileService {
 		File[] files=file.listFiles();
 		files=files==null?new File[0]:files;
 		for (File cur : files) {
-			int code = cur.hashCode();
-			String res = stringRedisTemplate.opsForValue().get(FILE_TO_KEY + code);
+			int code = cur.toPath().hashCode();
+			String res = stringRedisTemplate.opsForValue().get(REDIS_FILE_TO_KEY + code);
 			if(res==null){
 				Files.deleteIfExists(cur.toPath());
 			}

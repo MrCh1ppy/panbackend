@@ -11,7 +11,7 @@ spring:
         time-between-eviction-runs: 10s
   jpa:
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
     open-in-view: false
   datasource:
     username: pan_back
