@@ -104,4 +104,48 @@ public class FileController {
 		Result<String> result = fileService.receiveFile(response, code);
 		return result.getCode()==200?null:result;
 	}
+
+	@GetMapping("/copy")
+	@SaCheckLogin
+	public Result<String> fileCopy(
+			@RequestParam("path")String path,
+			@RequestParam("divide")String divide
+	){
+		int userID = StpUtil.getLoginIdAsInt();
+		return fileService.copyFile(userID, path, divide);
+	}
+
+	@GetMapping("/rename")
+	@SaCheckLogin
+	public Result<String> fileRename(
+			@RequestParam("path")String path,
+			@RequestParam("divide")String divide,
+			@RequestParam("name")String name
+	){
+		int userID = StpUtil.getLoginIdAsInt();
+		return fileService.renameFile(userID,path,name,divide);
+	}
+
+	@GetMapping("/move")
+	@SaCheckLogin
+	public Result<String>fileMove(
+			@RequestParam("path")String path,
+			@RequestParam("divide")String divide,
+			@RequestParam("target_path")String targetPath
+	){
+		int userID = StpUtil.getLoginIdAsInt();
+		return fileService.moveFile(userID,path,divide,targetPath);
+	}
+
+	@GetMapping("/create/directory")
+	public Result<String> createDirection(
+			@RequestParam("path")String path,
+			@RequestParam("divide")String divide,
+			@RequestParam("directory")String dName
+	){
+		int userID = StpUtil.getLoginIdAsInt();
+		return fileService.createDirectory(userID,path,divide,dName);
+	}
+
+
 }

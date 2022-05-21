@@ -15,7 +15,6 @@ import com.example.panbackend.response.ResponseCode;
 import com.example.panbackend.response.Result;
 import com.example.panbackend.service.FileService;
 import com.example.panbackend.utils.Const;
-import static com.example.panbackend.utils.Const.*;
 import com.example.panbackend.utils.PanFileUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,10 +25,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.net.URLEncoder;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -40,10 +38,13 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
+import static com.example.panbackend.utils.Const.*;
+
 @Service
 @Slf4j
 public class FileServiceImpl implements FileService {
 
+	public static final String NOT_EXIST = "文件不存在";
 	private final UserDao userDao;
 
 	private final StringRedisTemplate stringRedisTemplate;
@@ -64,11 +65,10 @@ public class FileServiceImpl implements FileService {
 		if(fileName==null){
 			return Result.fail(ResponseCode.DEFAULT_ERROR,"文件名为空");
 		}
-		File dest = path.resolve(fileName).toFile();
-		if(!dest.getParentFile().exists()&&!dest.getParentFile().mkdirs()){
-			log.warn("文件夹未创建");
-			return Result.fail(ResponseCode.DEFAULT_ERROR,"文件夹创建失败");
+		if(!path.toFile().isDirectory()){
+			return Result.fail(ResponseCode.LOGIC_ERROR,"非文件夹名或文件不存在");
 		}
+		File dest = path.resolve(fileName).toFile();
 		try{
 			log.info("try upload {}",dest.getAbsolutePath());
 			file.transferTo(dest);
@@ -132,7 +132,7 @@ public class FileServiceImpl implements FileService {
 		log.info("download file:{}",path);
 		File file = path.toFile();
 		if(!file.exists()){
-			return Result.fail(ResponseCode.NOT_FOUND,"此文件不存在");
+			return Result.fail(ResponseCode.NOT_FOUND,NOT_EXIST);
 		}
 		response.reset();
 		response.setContentType("application/octet-stream");
@@ -458,6 +458,105 @@ public class FileServiceImpl implements FileService {
 		File file = path.toFile();
 		String shareCode = doFileShare(file, Duration.of(AIR_DROP_TTL, SHARE_TIME_UNIT),numOfShare);
 		return Result.ok(shareCode);
+	}
+
+	@Override
+	public Result<String> copyFile(int userID, String path, String divide) {
+		Path filePath = pathBuilder(path, userID, divide);
+		File baseFile = filePath.toFile();
+		if(!baseFile.exists()){
+			return Result.fail(ResponseCode.INVALID_PARAMETER, NOT_EXIST);
+		}
+		Path parent = filePath.getParent();
+		String text = baseFile.getName();
+		int repeat=1;
+		StringBuilder baseName = new StringBuilder(text.substring(0, text.lastIndexOf(".")));
+		File targetFile;
+
+		while (true){
+			String fileName = baseName.append("(")
+					.append(repeat).append(")")
+					.append(text.substring(text.lastIndexOf("."))).toString();
+			File destFile = parent.resolve(fileName).toFile();
+			if(!destFile.exists()){
+				targetFile=destFile;
+				break;
+			}
+			repeat+=1;
+		}
+		try {
+			doFileCopy(baseFile,targetFile);
+			return Result.ok("ok");
+		} catch (IOException e) {
+			e.printStackTrace();
+			return Result.fail(ResponseCode.DEFAULT_ERROR,"文件复制错误");
+		}
+	}
+
+	@Override
+	public Result<String> renameFile(int userID, String path, String name, String divide) {
+		Path filePath = pathBuilder(path, userID, divide);
+		File file = filePath.toFile();
+		if(!file.exists()){
+			return Result.fail(ResponseCode.INVALID_PARAMETER,NOT_EXIST);
+		}
+		File targetFile = filePath.getParent().resolve(name).toFile();
+		if(targetFile.exists()){
+			return Result.fail(ResponseCode.LOGIC_ERROR,"文件名已存在");
+		}
+		boolean isOK = file.renameTo(targetFile);
+		if(isOK){
+			return Result.ok("改名成功");
+		}
+		return Result.fail(ResponseCode.DEFAULT_ERROR,"改名失败");
+	}
+
+	@Override
+	public Result<String> moveFile(int userID, String path, String divide, String targetPath) {
+		Path filePath = pathBuilder(path, userID, divide);
+		File file = filePath.toFile();
+		if(!file.exists()){
+			return Result.fail(ResponseCode.LOGIC_ERROR,NOT_EXIST);
+		}
+		Path targetFilePath = pathBuilder(targetPath, userID, divide);
+		File targetFile = targetFilePath.toFile();
+		if(!targetFile.exists()||!targetFile.isDirectory()){
+			return Result.fail(ResponseCode.LOGIC_ERROR,"目标路径非文件夹或不存在");
+		}
+		if (!file.renameTo(targetFile)) {
+			return Result.fail(ResponseCode.DEFAULT_ERROR,"移动失败");
+		}
+		return Result.ok("移动成功");
+	}
+
+	@Override
+	public Result<String> createDirectory(int userID, String path, String divide, String dName) {
+		Path target = pathBuilder(path, userID, divide);
+		File file = target.toFile();
+		if(!file.isDirectory()){
+			return Result.fail(ResponseCode.INVALID_PARAMETER,"该目录不存在或非法");
+		}
+		var dest = target.resolve(dName).toFile();
+		if(dest.exists()){
+			return Result.fail(ResponseCode.INVALID_PARAMETER,"该目录已存在");
+		}
+		try {
+			Files.createDirectory(dest.toPath());
+		} catch (IOException e) {
+			return Result.fail(ResponseCode.DEFAULT_ERROR,e.getMessage());
+		}
+		return Result.ok("ok");
+	}
+
+	private void doFileCopy(File baseFile,File targetFile)throws IOException{
+		try(
+				FileInputStream baseStream = new FileInputStream(baseFile);
+				FileOutputStream targetStream = new FileOutputStream(targetFile)
+		){
+			FileChannel baseChannel = baseStream.getChannel();
+			FileChannel targetChannel = targetStream.getChannel();
+			targetChannel.transferFrom(baseChannel,0,baseChannel.size());
+		}
 	}
 
 	@Scheduled(fixedDelay = 120*1000)

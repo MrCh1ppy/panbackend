@@ -96,6 +96,10 @@ public final class Result<T> {
 	public int getCode() {
 		return code;
 	}
+
+	public boolean isSuccess(){
+		return this.getCode()==ResponseCode.SUCCESS.getCode();
+	}
 }
 
 
