@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.List;
 
@@ -54,9 +55,11 @@ public class FileController {
 	@SaCheckLogin
 	public Result<String> downLoad( HttpServletResponse response,
 	                                @RequestParam("path") String path,
-	                                @RequestParam("divide")String divide){
+	                                @RequestParam("divide")String divide,
+                                    @RequestHeader("range")String range
+	){
 		int id = StpUtil.getLoginIdAsInt();
-		Result<String> result = fileService.fileDownLoad(response,path,id,divide);
+		Result<String> result = fileService.fileDownLoad(response,path,id,divide,range);
 		return result.getCode()==200?null:result;
 	}
 
@@ -99,9 +102,10 @@ public class FileController {
 	@PostMapping("/receive")
 	public Result<String> getShareFile(
 			HttpServletResponse response,
-			@RequestParam("code") String code
+			@RequestParam("code") String code,
+			@RequestHeader("range")String range
 	){
-		Result<String> result = fileService.receiveFile(response, code);
+		Result<String> result = fileService.receiveFile(response, code,range);
 		return result.getCode()==200?null:result;
 	}
 

@@ -2,6 +2,7 @@ package com.example.panbackend.utils;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.ArrayUtil;
+import cn.hutool.crypto.digest.MD5;
 import com.example.panbackend.entity.dto.file.FileDTO;
 import com.example.panbackend.entity.dto.file.FileSizeDTO;
 
@@ -14,6 +15,9 @@ public final class PanFileUtils {
 	private static final int PRE_PATH_SIZE;
 
 	private static final String[] thumbnailAbleArray=new String[]{"png","jpg","jpeg","gif"};
+
+	//适合的时间进行池化
+	private static final ThreadLocal<MD5> MD5_DEALER = ThreadLocal.withInitial(MD5::create);
 
 	private PanFileUtils() {
 	}
@@ -71,6 +75,20 @@ public final class PanFileUtils {
 		}
 		res=res.resolve(Path.of(split[0],next));
 		return res;
+	}
+
+	/**
+	 * get file hash code
+	 *
+	 * @param file file
+	 * @return {@link int}
+	 */
+	public static String getFileUniqueCode(File file){
+		return MD5_DEALER.get().digestHex16(file);
+	}
+
+	public static String getFileUniqueCode(Path path){
+		return getFileUniqueCode(path.toFile());
 	}
 
 }

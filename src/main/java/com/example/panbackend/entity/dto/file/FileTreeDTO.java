@@ -7,7 +7,7 @@ import java.util.List;
 
 @Getter
 @Setter
-public class FileTreeDTO {
+public final class FileTreeDTO {
 	private FileDTO fileDTO;
 	private List<FileTreeDTO> fileTreeDTOList;
 

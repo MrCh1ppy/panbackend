@@ -14,7 +14,6 @@ import com.example.panbackend.exception.ProjectException;
 import com.example.panbackend.response.ResponseCode;
 import com.example.panbackend.response.Result;
 import com.example.panbackend.service.FileService;
-import com.example.panbackend.utils.Const;
 import com.example.panbackend.utils.PanFileUtils;
 import lombok.extern.slf4j.Slf4j;
 import net.coobird.thumbnailator.Thumbnails;
@@ -22,14 +21,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.util.unit.DataSize;
 import org.springframework.web.multipart.MultipartFile;
 
-import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
-import java.net.URLEncoder;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -46,10 +44,10 @@ import static com.example.panbackend.utils.Const.*;
 public class FileServiceImpl implements FileService {
 
 	public static final String NOT_EXIST = "文件不存在";
+	public static final int BUFFER_SIZE = 1024 * 1024;
+	public static final long BUFFER_CHOOSE_STANDER = DataSize.parse("100MB").toBytes();
 	private final UserDao userDao;
-
 	private final StringRedisTemplate stringRedisTemplate;
-
 	private final HistoryDao historyDao;
 
 	@Autowired
@@ -159,47 +157,91 @@ public class FileServiceImpl implements FileService {
 		return fileSize>size;
 	}
 
-	private Result<String>doDownLoad(HttpServletResponse response,Path path){
+	private Result<String> doDownLoad(HttpServletResponse response, Path path, String range){
 		log.info("download file:{}",path);
 		File file = path.toFile();
 		if(!file.exists()){
 			return Result.fail(ResponseCode.NOT_FOUND,NOT_EXIST);
 		}
-		response.reset();
-		response.setContentType("application/octet-stream");
-		response.setCharacterEncoding("utf-8");
-		response.setContentLength((int) file.length());
-		response.setHeader("Content-Disposition", "attachment;filename=" + URLEncoder.encode(file.getName(), StandardCharsets.UTF_8));
-		ServletOutputStream ops = null;
-		try(
-				BufferedInputStream stream = new BufferedInputStream(Files.newInputStream(file.toPath()))
-		){
-			byte[] bytes = new byte[10240];
-			ops = response.getOutputStream();
-			int i;
-			while ((i=stream.read(bytes))>0){
-				ops.write(bytes,0,i);
-				ops.flush();
-			}
-		}catch (IOException e){
-			log.error("{} check",e.toString());
-			return Result.fail(ResponseCode.DEFAULT_ERROR,"下载时出现异常");
-		}finally {
-			try {
-				if(ops!=null){
-					ops.close();
+		long startByte=0;
+		long endByte=file.length()-1;
+		if(range!=null&&range.contains("bytes=")&&range.contains("-")){
+			range=range.substring(range.lastIndexOf("=")+1).trim();
+			String[] ranges = range.split("-");
+			try{
+				if(ranges.length==1){
+					if(range.startsWith("-")){
+						endByte=Long.parseLong(ranges[0]);
+					}
+					else if(range.endsWith("-")){
+						startByte=Long.parseLong(ranges[0]);
+					}
+				}else if(ranges.length==2){
+					startByte=Long.parseLong(ranges[0]);
+					endByte=Long.parseLong(ranges[1]);
 				}
-			} catch (IOException e) {
-				e.printStackTrace();
+			}catch (NumberFormatException e){
+				startByte=0;
+				endByte= file.length()-1;
 			}
 		}
-		return Result.ok("success");
+		//要下载的长度
+		long contentLength = endByte - startByte + 1;
+		//文件名
+		String fileName = file.getName();
+		//文件类型
+		String contentType = FileUtil.getType(file);
+		//响应头设置
+		//https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Headers/Accept-Ranges
+		response.setHeader("Accept-Ranges", "bytes");
+		//Content-Type 表示资源类型，如：文件类型
+		response.setHeader("Content-Type", contentType);
+		//Content-Disposition 表示响应内容以何种形式展示，是以内联的形式（即网页或者页面的一部分），还是以附件的形式下载并保存到本地。
+		response.setHeader("Content-Disposition", "inline;filename="+fileName);
+		//Content-Length 表示资源内容长度，即：文件大小
+		response.setHeader("Content-Length", String.valueOf(contentLength));
+		//Content-Range 表示响应了多少数据，格式为：[要下载的开始位置]-[结束位置]/[文件总大小]
+		response.setHeader("Content-Range", "bytes " + startByte + "-" + endByte + "/" + file.length());
+		response.setStatus(HttpServletResponse.SC_OK);
+		response.setContentType(contentType);
+		//大文件使用直接内存的ByteBuffer减少缓冲时间
+		ByteBuffer buffer=endByte-startByte>BUFFER_CHOOSE_STANDER?ByteBuffer.allocateDirect(BUFFER_SIZE):ByteBuffer.allocate(BUFFER_SIZE);
+		downLoad(response, path, startByte,buffer);
+		return Result.ok("");
+	}
+
+	private void downLoad(HttpServletResponse response, Path path, long startByte,ByteBuffer buffer) {
+		try(
+				BufferedOutputStream ops = new BufferedOutputStream(response.getOutputStream());
+				RandomAccessFile targetFile = new RandomAccessFile(path.toFile(),"r")
+		){
+			if (buffer.hasArray()) {
+				throw new ProjectException("缓存创建失败",ResponseCode.DEFAULT_ERROR);
+			}
+			targetFile.seek(startByte);
+			FileChannel fileChannel = targetFile.getChannel();
+			byte[] bufferArray = new byte[BUFFER_SIZE];
+			while (true){
+				int read = fileChannel.read(buffer);
+				if(read==-1){
+					break;
+				}
+				buffer.flip();
+				buffer.get(bufferArray,0,buffer.capacity());
+				ops.write(bufferArray);
+				buffer.clear();
+			}
+			ops.flush();
+		}catch (IOException e){
+			e.printStackTrace();
+			throw new ProjectException(e.getMessage(),ResponseCode.DEFAULT_ERROR);
+		}
 	}
 
 	@Override
-	public Result<String> fileDownLoad(HttpServletResponse response,String path,int userId,String divide)  {
+	public Result<String> fileDownLoad(HttpServletResponse response,String path,int userId,String divide,String range)  {
 		Path tempPath = pathBuilder(path, userId,divide);
-		Result<String> downLoad = doDownLoad(response, tempPath);
+		Result<String> downLoad = doDownLoad(response, tempPath,range);
 		if (downLoad==null) {
 			File file = tempPath.toFile();
 			HistoryPo po = HistoryPo.getInstance(
@@ -316,7 +358,7 @@ public class FileServiceImpl implements FileService {
 				 */
 				@Override
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-					int i = file.hashCode();
+					var i = PanFileUtils.getFileUniqueCode(file);
 					//防止文件删除了，分享码依旧存在
 					String key = stringRedisTemplate
 							.opsForValue()
@@ -327,7 +369,7 @@ public class FileServiceImpl implements FileService {
 					//删除存留的缩略图
 					String path = stringRedisTemplate
 							.opsForValue()
-							.getAndDelete(REDIS_THUMBNAIL + file.hashCode());
+							.getAndDelete(REDIS_THUMBNAIL + PanFileUtils.getFileUniqueCode(file));
 					if(path!=null){
 						Files.delete(Path.of(path));
 					}
@@ -401,13 +443,13 @@ public class FileServiceImpl implements FileService {
 	 * @see String
 	 */
 	private String doFileShare(File file,Duration duration,int receiveTime){
-		String fileToKeyKey = REDIS_FILE_TO_KEY + file.toPath().hashCode();
+		String fileToKeyKey = REDIS_FILE_TO_KEY + PanFileUtils.getFileUniqueCode(file);
 		//获取hash的key
 		String hashMapKey = stringRedisTemplate.opsForValue().get(fileToKeyKey);
 		if(hashMapKey==null){
 			//生成key
 			String key = NanoId.randomNanoId(8);
-			stringRedisTemplate.opsForValue().set(REDIS_FILE_TO_KEY +file.toPath().hashCode(),key,duration);
+			stringRedisTemplate.opsForValue().set(REDIS_FILE_TO_KEY +PanFileUtils.getFileUniqueCode(file),key,duration);
 			//构建文件信息
 			HashMap<String, String> fileInfo = new HashMap<>();
 			fileInfo.put(REDIS_FILE_PATH,file.getAbsolutePath());
@@ -436,7 +478,7 @@ public class FileServiceImpl implements FileService {
 	 * @see String
 	 */
 	@Override
-	public Result<String> receiveFile(HttpServletResponse response, String code) {
+	public Result<String> receiveFile(HttpServletResponse response, String code,String range) {
 		String numText = (String) stringRedisTemplate.opsForHash().get(REDIS_KEY_TO_FILE + code, REDIS_FILE_TIME);
 		if(numText==null||numText.isBlank()){
 			return Result.fail(ResponseCode.NOT_FOUND,"文件已删除或分享超时");
@@ -453,13 +495,13 @@ public class FileServiceImpl implements FileService {
 		Path filePath = Path.of(path);
 		//防止高并发访问下击穿
 		if(receiveTime<=0){
-			stringRedisTemplate.delete(REDIS_FILE_TO_KEY + filePath.hashCode());
+			stringRedisTemplate.delete(REDIS_FILE_TO_KEY + PanFileUtils.getFileUniqueCode(filePath));
 			stringRedisTemplate.delete(REDIS_KEY_TO_FILE +code);
 			return Result.fail(ResponseCode.LOGIC_ERROR, "文件分享次数已达上限");
 		}
 		receiveTime-=1;
 		stringRedisTemplate.opsForHash().put(REDIS_KEY_TO_FILE +code, REDIS_FILE_TIME,Integer.toString(receiveTime));
-		return doDownLoad(response, filePath);
+		return doDownLoad(response, filePath,range);
 	}
 
 	/**
@@ -603,8 +645,7 @@ public class FileServiceImpl implements FileService {
 		File[] files=file.listFiles();
 		files=files==null?new File[0]:files;
 		for (File cur : files) {
-			int code = cur.toPath().hashCode();
-			String res = stringRedisTemplate.opsForValue().get(REDIS_FILE_TO_KEY + code);
+			String res = stringRedisTemplate.opsForValue().get(REDIS_FILE_TO_KEY + PanFileUtils.getFileUniqueCode(cur));
 			if(res==null){
 				Files.deleteIfExists(cur.toPath());
 			}
