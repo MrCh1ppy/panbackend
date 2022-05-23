@@ -1,44 +1,44 @@
 package com.example.panbackend.utils;
 
 import cn.hutool.core.io.FileUtil;
+import cn.hutool.core.util.ArrayUtil;
+import cn.hutool.crypto.digest.MD5;
 import com.example.panbackend.entity.dto.file.FileDTO;
 import com.example.panbackend.entity.dto.file.FileSizeDTO;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 import java.io.File;
+import java.nio.file.Path;
 
-@Component
+import static com.example.panbackend.utils.Const.PRE_PATH;
 public final class PanFileUtils {
-
-	private ProjectConst projectConst;
 	private static final String[] sizeUnit={"Byte","KB","MB","GB","TB"};
-	private static int prePathSize=-1;
-	@Autowired
-	public PanFileUtils(ProjectConst projectConst) {
-		this.projectConst = projectConst;
+	private static final int PRE_PATH_SIZE;
+
+	private static final String[] thumbnailAbleArray=new String[]{"png","jpg","jpeg","gif"};
+
+	//适合的时间进行池化
+	private static final ThreadLocal<MD5> MD5_DEALER = ThreadLocal.withInitial(MD5::create);
+
+	private PanFileUtils() {
 	}
 
-	@Autowired
-	public PanFileUtils setProjectConst(ProjectConst projectConst) {
-		this.projectConst = projectConst;
-		return this;
+	static {
+		PRE_PATH_SIZE =PRE_PATH.toString().length();
 	}
 
-
-	public FileDTO getFileDTO(File file) {
+	public static FileDTO getFileDTO(File file) {
 		double size = FileUtil.size(file);
 		FileSizeDTO sizeDTO = getDataSize(size);
 		return new FileDTO(
 				FileUtil.getName(file),
-				file.toPath().toString().substring(getPrePathSize()),
+				file.toPath().toString().substring(PRE_PATH_SIZE),
 				sizeDTO.getSize(),
 				sizeDTO.getSizeUnit(),
 				file.isDirectory() ? "directory" : FileUtil.getType(file)
 		);
 	}
 
-	public FileSizeDTO getDataSize(double bytesSize){
+	public static FileSizeDTO getDataSize(double bytesSize){
 		double showSize = bytesSize;
 		String showSizeUnit;
 		short index = 0;
@@ -56,11 +56,39 @@ public final class PanFileUtils {
 		);
 	}
 
-	public int getPrePathSize() {
-		if(prePathSize!=-1){
-			return prePathSize;
+	public static boolean thumbnailAble(File file){
+		String type = FileUtil.getType(file);
+		for (String cur : thumbnailAbleArray) {
+			if (type.equals(cur)){
+				return true;
+			}
 		}
-		PanFileUtils.prePathSize=projectConst.getPrePath().toString().length();
-		return prePathSize;
+		return false;
 	}
+
+	public static Path pathBuilder(Path base,String path,String divide,Integer userID){
+		String[] split = path.split(divide);
+		String[] next = ArrayUtil.sub(split, 1, split.length);
+		Path res = base;
+		if(userID!=null){
+			res=res.resolve(userID.toString());
+		}
+		res=res.resolve(Path.of(split[0],next));
+		return res;
+	}
+
+	/**
+	 * get file hash code
+	 *
+	 * @param file file
+	 * @return {@link int}
+	 */
+	public static String getFileUniqueCode(File file){
+		return MD5_DEALER.get().digestHex16(file);
+	}
+
+	public static String getFileUniqueCode(Path path){
+		return getFileUniqueCode(path.toFile());
+	}
+
 }

@@ -1,5 +1,5 @@
 server:
-  port: 9005
+  port: 8085
 spring:
   redis:
     host: 47.98.206.89
@@ -11,7 +11,7 @@ spring:
         time-between-eviction-runs: 10s
   jpa:
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
     open-in-view: false
   datasource:
     username: pan_back
@@ -36,12 +36,3 @@ sa-token:
   token-name: token
   is-share: true
   is-concurrent: false
-const:
-  share:
-    key_file_pre: "key_to_file:"
-    file_key_pre: "file_to_key:"
-    file_path: "file_path"
-    file_time: "file_time"
-  air_drop:
-    air_drop_ttl: 60
-    air_drop_user_id: -1

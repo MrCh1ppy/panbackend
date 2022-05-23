@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.List;
 
@@ -54,9 +55,11 @@ public class FileController {
 	@SaCheckLogin
 	public Result<String> downLoad( HttpServletResponse response,
 	                                @RequestParam("path") String path,
-	                                @RequestParam("divide")String divide){
+	                                @RequestParam("divide")String divide,
+                                    @RequestHeader("range")String range
+	){
 		int id = StpUtil.getLoginIdAsInt();
-		Result<String> result = fileService.fileDownLoad(response,path,id,divide);
+		Result<String> result = fileService.fileDownLoad(response,path,id,divide,range);
 		return result.getCode()==200?null:result;
 	}
 
@@ -99,9 +102,54 @@ public class FileController {
 	@PostMapping("/receive")
 	public Result<String> getShareFile(
 			HttpServletResponse response,
-			@RequestParam("code") String code
+			@RequestParam("code") String code,
+			@RequestHeader("range")String range
 	){
-		Result<String> result = fileService.receiveFile(response, code);
+		Result<String> result = fileService.receiveFile(response, code,range);
 		return result.getCode()==200?null:result;
 	}
+
+	@GetMapping("/copy")
+	@SaCheckLogin
+	public Result<String> fileCopy(
+			@RequestParam("path")String path,
+			@RequestParam("divide")String divide
+	){
+		int userID = StpUtil.getLoginIdAsInt();
+		return fileService.copyFile(userID, path, divide);
+	}
+
+	@GetMapping("/rename")
+	@SaCheckLogin
+	public Result<String> fileRename(
+			@RequestParam("path")String path,
+			@RequestParam("divide")String divide,
+			@RequestParam("name")String name
+	){
+		int userID = StpUtil.getLoginIdAsInt();
+		return fileService.renameFile(userID,path,name,divide);
+	}
+
+	@GetMapping("/move")
+	@SaCheckLogin
+	public Result<String>fileMove(
+			@RequestParam("path")String path,
+			@RequestParam("divide")String divide,
+			@RequestParam("target_path")String targetPath
+	){
+		int userID = StpUtil.getLoginIdAsInt();
+		return fileService.moveFile(userID,path,divide,targetPath);
+	}
+
+	@GetMapping("/create/directory")
+	public Result<String> createDirection(
+			@RequestParam("path")String path,
+			@RequestParam("divide")String divide,
+			@RequestParam("directory")String dName
+	){
+		int userID = StpUtil.getLoginIdAsInt();
+		return fileService.createDirectory(userID,path,divide,dName);
+	}
+
+
 }
