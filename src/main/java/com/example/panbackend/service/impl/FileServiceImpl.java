@@ -115,18 +115,31 @@ public class FileServiceImpl implements FileService {
 		if (!PanFileUtils.thumbnailAble(file)) {
 			return;
 		}
-		Path path = PanFileUtils.pathBuilder(THUMBNAIL_PRE_PATH, "", "", StpUtil.getLoginIdAsInt()).resolve(file.getName());
+		String hashCode = PanFileUtils.getFileUniqueCode(file);
+		String res = stringRedisTemplate.opsForValue().get(REDIS_THUMBNAIL + hashCode);
+		if(res!=null){
+			return;
+		}
+		var path = PanFileUtils.pathBuilder(THUMBNAIL_PRE_PATH, "", "", null);
+		File parentFile = path.toFile();
+		File targetFile = path.resolve(hashCode + "." + FileUtil.getType(file)).toFile();
 		try {
+			if (!parentFile.exists()){
+				Path directories = Files.createDirectories(path);
+				if(directories!=path){
+					throw new ProjectException("创建目录失败",ResponseCode.DEFAULT_ERROR);
+				}
+			}
 			Thumbnails.of(file)
 					.size(200,200)
 					.outputFormat("jpeg")
-					.toFile(path.toFile());
+					.toFile(targetFile);
 		} catch (IOException e) {
 			e.printStackTrace();
 			throw new ProjectException("缩略图生成失败",ResponseCode.DEFAULT_ERROR);
 		}
 		log.info("缩略图生成一个{}", path);
-		stringRedisTemplate.opsForValue().set(REDIS_THUMBNAIL+file.toPath().hashCode(),path.toString());
+		stringRedisTemplate.opsForValue().set(REDIS_THUMBNAIL+PanFileUtils.getFileUniqueCode(file),path.toString());
 	}
 
 	private static boolean checkSize(MultipartFile file,int size,String unit){

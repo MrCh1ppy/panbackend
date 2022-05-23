@@ -73,7 +73,9 @@ public final class PanFileUtils {
 		if(userID!=null){
 			res=res.resolve(userID.toString());
 		}
-		res=res.resolve(Path.of(split[0],next));
+		if(split.length!=0){
+			res=res.resolve(Path.of(split[0],next));
+		}
 		return res;
 	}
 
